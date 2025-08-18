@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Art Studio</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel to transpile JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Google Fonts: Roboto Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles from the React app */
+        .font-roboto-mono { font-family: 'Roboto Mono', monospace; }
+        .range-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #EF4444; /* red-500 */
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -7px;
+        }
+        .range-thumb::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #EF4444; /* red-500 */
+            border-radius: 50%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- The root element where the React app will be mounted -->
+    <div id="root"></div>
+
+    <!-- The React application code, marked as text/babel for transpilation -->
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useMemo } = React;
+
+        // --- Helper Functions ---
+
+        // Converts a hex color to an RGB object
+        const hexToRgb = (hex) => {
+          if (!hex) return null;
+          const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+          return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16),
+          } : null;
+        };
+
+        // Calculates the Euclidean distance between two RGB colors
+        const colorDistance = (rgb1, rgb2) => {
+          if (!rgb1 || !rgb2) return Infinity;
+          return Math.sqrt(
+            Math.pow(rgb1.r - rgb2.r, 2) +
+            Math.pow(rgb1.g - rgb2.g, 2) +
+            Math.pow(rgb1.b - rgb2.b, 2)
+          );
+        };
+
+        // Finds the closest color in the palette to a given RGB color
+        const findClosestColor = (rgb, palette) => {
+          let closestColor = palette[0];
+          let minDistance = Infinity;
+          const paletteRgb = palette.map(hex => ({ hex, rgb: hexToRgb(hex) }));
+
+          for (const paletteColor of paletteRgb) {
+            const distance = colorDistance(rgb, paletteColor.rgb);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestColor = paletteColor.hex;
+            }
+          }
+          return closestColor;
+        };
+
+
+        // --- Default Color Palette (DMC-inspired) ---
+        const INITIAL_DMC_COLORS = [
+          "#FFFFFF", "#000000", "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF",
+          "#F8F8F8", "#C7C7C7", "#888888", "#555555", "#313131", "#990000", "#D46A6A", "#FFAAAA",
+          "#CC4E00", "#FF9955", "#FFD4B8", "#FFCC00", "#FFEE77", "#FFFFC2", "#649632", "#96FF4A",
+          "#C2FF96", "#006400", "#009600", "#78FF78", "#006464", "#009696", "#78FFFF", "#000099",
+          "#6A6AFF", "#AAAAFF", "#4A0096", "#964AFF", "#C296FF", "#960096", "#FF78FF", "#FFB8FF",
+          "#96004A", "#FF4A96", "#FF96C2", "#964A00", "#C2964A", "#FFC296", "#828232", "#C2C278"
+        ];
+
+
+        // --- React Components ---
+
+        // Represents a single cell in the cross-stitch grid
+        const Cell = React.memo(({ color, onCellInteraction, onMouseEnterCell, stitchMode, isBlackAndWhite }) => {
+          const handleInteraction = (e) => {
+            e.preventDefault();
+            onCellInteraction();
+          };
+          const handleMouseEnter = (e) => {
+            if (e.buttons === 1) onMouseEnterCell();
+          };
+          const handleTouchMove = (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const element = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (element) {
+                element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
+            }
+          };
+          const cellClass = stitchMode === 'cross' ? "border border-gray-300/50" : "border border-transparent";
+          const displayColor = color && isBlackAndWhite ? '#000000' : color;
+
+          return (
+            <div
+              className={`aspect-square flex justify-center items-center select-none ${cellClass}`}
+              style={{ backgroundColor: 'transparent', touchAction: 'none' }}
+              onMouseDown={handleInteraction} onMouseEnter={handleMouseEnter} onTouchStart={handleInteraction} onTouchMove={handleTouchMove}
+            >
+              {displayColor && stitchMode === 'cross' && (
+                <svg viewBox="0 0 100 100" className="w-full h-full pointer-events-none" style={{ color: displayColor }}>
+                  <path d="M15 15 L85 85 M85 15 L15 85" stroke="currentColor" strokeWidth="15" strokeLinecap="round" />
+                </svg>
+              )}
+              {displayColor && stitchMode === 'dot' && (
+                 <svg viewBox="0 0 100 100" className="w-full h-full pointer-events-none">
+                    <circle cx="50" cy="50" r="40" fill={displayColor} />
+                </svg>
+              )}
+              {stitchMode === 'dot' && !color && (
+                  <div className="w-1.5 h-1.5 rounded-full bg-gray-300"></div>
+              )}
+            </div>
+          );
+        });
+
+        // Displays the color palette in a popover
+        const ColorPalette = ({ paletteColors, selectedColor, onColorSelect, onSuggestPalette, paletteTheme, setPaletteTheme, isSuggestingColors }) => (
+          <div className="bg-white/70 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/20 w-80">
+            <h3 className="text-sm font-bold text-black/60 uppercase tracking-widest mb-3">Palette</h3>
+            <div className="grid grid-cols-8 gap-2 mb-4">
+              {paletteColors.map((color, index) => (
+                <div
+                  key={`${color}-${index}`}
+                  onClick={() => onColorSelect(color)}
+                  className={`w-8 h-8 rounded-full cursor-pointer transition-all duration-200 ${selectedColor === color ? 'ring-2 ring-offset-2 ring-red-500 scale-110' : 'ring-1 ring-black/10'}`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+             <div className="space-y-2">
+                <input 
+                    type="text" 
+                    value={paletteTheme}
+                    onChange={(e) => setPaletteTheme(e.target.value)}
+                    placeholder="e.g., 'autumn forest'"
+                    className="w-full p-3 rounded-xl bg-gray-200/80 border-transparent focus:ring-2 focus:ring-red-500 focus:border-transparent transition"
+                    disabled={isSuggestingColors}
+                />
+                <button
+                    onClick={onSuggestPalette}
+                    disabled={isSuggestingColors || !paletteTheme}
+                    className="w-full p-3 rounded-xl text-white font-bold transition-all duration-300 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:saturate-50 disabled:cursor-not-allowed"
+                >
+                    {isSuggestingColors ? 'Thinking...' : 'Suggest Palette'}
+                </button>
+            </div>
+          </div>
+        );
+
+        // Main Toolbar for core editing actions
+        const Toolbar = ({ onUndo, onRedo, canUndo, canRedo, onToggleEraser, isErasing, onClear, onTogglePalette, selectedColor }) => (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/50 backdrop-blur-sm p-2 rounded-full shadow-lg border border-white/20 flex items-center gap-2 z-20">
+              <button onClick={onUndo} disabled={!canUndo} className="p-3 rounded-full text-black/80 transition-colors bg-gray-200/0 hover:bg-gray-300/80 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h13a5 5 0 0 1 5 5v7"/><path d="M7 5 3 9l4 4"/></svg>
+              </button>
+              <button onClick={onRedo} disabled={!canRedo} className="p-3 rounded-full text-black/80 transition-colors bg-gray-200/0 hover:bg-gray-300/80 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 9H8a5 5 0 0 0-5 5v7"/><path d="m17 5 4 4-4 4"/></svg>
+              </button>
+              <button onClick={onTogglePalette} className="w-10 h-10 rounded-full ring-2 ring-offset-2 ring-transparent transition-all" style={{backgroundColor: selectedColor}}></button>
+              <button onClick={onToggleEraser} className={`p-3 rounded-full transition-colors ${isErasing ? 'bg-red-500 text-white' : 'text-black/80 bg-gray-200/0 hover:bg-gray-300/80'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21H7Z"/><path d="M22 21H7"/><path d="m5 12 5 5"/></svg>
+              </button>
+              <button onClick={onClear} className="p-3 rounded-full text-black/80 transition-colors bg-gray-200/0 hover:bg-gray-300/80">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+              </button>
+            </div>
+        );
+
+        // Contains all other control elements
+        const Controls = ({ gridSize, onGridSizeChange, onImageUpload, isLoading, stitchMode, onStitchModeChange, isBlackAndWhite, onBwToggle, onGeneratePattern, patternPrompt, setPatternPrompt, isGeneratingPattern, onExportPNG }) => {
+          const handleFileUpload = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = (event) => onImageUpload(event.target.result);
+              reader.readAsDataURL(file);
+            }
+            e.target.value = null;
+          };
+
+          return (
+            <div className="bg-white/50 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/20 space-y-5">
+                <div className="space-y-2">
+                    <label className="text-sm font-bold text-black/60 uppercase tracking-widest">Generate from Idea</label>
+                    <input 
+                        type="text" 
+                        value={patternPrompt}
+                        onChange={(e) => setPatternPrompt(e.target.value)}
+                        placeholder="e.g., 'a happy little robot'"
+                        className="w-full p-3 rounded-xl bg-gray-200/80 border-transparent focus:ring-2 focus:ring-red-500 focus:border-transparent transition"
+                        disabled={isGeneratingPattern}
+                    />
+                    <button
+                        onClick={onGeneratePattern}
+                        disabled={isGeneratingPattern || !patternPrompt}
+                        className="w-full p-3 rounded-xl text-white font-bold transition-all duration-300 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:saturate-50 disabled:cursor-not-allowed"
+                    >
+                        {isGeneratingPattern ? 'Creating...' : 'Generate Pattern'}
+                    </button>
+                </div>
+                
+                <div className="p-1 bg-gray-200/80 rounded-full flex">
+                    <button onClick={() => onStitchModeChange('cross')} className={`w-1/2 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'cross' ? 'bg-black text-white' : 'text-black/60'}`}>Cross</button>
+                    <button onClick={() => onStitchModeChange('dot')} className={`w-1/2 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'dot' ? 'bg-black text-white' : 'text-black/60'}`}>Dot</button>
+                </div>
+
+                <label htmlFor="bw-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-200/80 rounded-full">
+                    <span className="text-sm font-bold text-black/60">B&W Mode</span>
+                    <div className="relative">
+                        <input type="checkbox" id="bw-mode" className="sr-only peer" checked={isBlackAndWhite} onChange={onBwToggle} />
+                        <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-checked:bg-red-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </div>
+                </label>
+                
+                <div>
+                    <label htmlFor="gridSize" className="text-sm font-bold text-black/60 uppercase tracking-widest">Grid Size: {gridSize}</label>
+                    <input type="range" id="gridSize" min="16" max="64" step="8" value={gridSize} onChange={(e) => onGridSizeChange(Number(e.target.value))} className="w-full h-2 bg-gray-300/80 rounded-lg appearance-none cursor-pointer range-thumb" disabled={isLoading}/>
+                </div>
+                
+                <div className="flex">
+                    <label htmlFor="imageUpload" className={`flex-1 text-center p-3 rounded-l-xl font-bold transition-colors cursor-pointer ${isLoading ? 'bg-gray-400 text-white/80' : 'bg-gray-200/80 text-black/80 hover:bg-gray-300/80'}`}>
+                        {isLoading ? 'Processing...' : 'Upload'}
+                    </label>
+                    <input id="imageUpload" type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isLoading} />
+                    <button onClick={onExportPNG} disabled={isLoading} className="flex-1 p-3 bg-black text-white font-bold rounded-r-xl transition-colors disabled:opacity-50">
+                        Export
+                    </button>
+                </div>
+            </div>
+          );
+        };
+
+        // Main App Component
+        function App() {
+          const [gridSize, setGridSize] = useState(32);
+          const [history, setHistory] = useState({
+            past: [],
+            present: Array(32).fill(null).map(() => Array(32).fill(null)),
+            future: [],
+          });
+          const [selectedColor, setSelectedColor] = useState(INITIAL_DMC_COLORS[1]);
+          const [isErasing, setIsErasing] = useState(false);
+          const [isLoading, setIsLoading] = useState(false);
+          const [showModal, setShowModal] = useState(false);
+          const [stitchMode, setStitchMode] = useState('cross');
+          const [isBlackAndWhite, setIsBlackAndWhite] = useState(false);
+          const [isDrawing, setIsDrawing] = useState(false);
+          const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+          
+          const [patternPrompt, setPatternPrompt] = useState('');
+          const [isGeneratingPattern, setIsGeneratingPattern] = useState(false);
+          const [paletteTheme, setPaletteTheme] = useState('');
+          const [isSuggestingColors, setIsSuggestingColors] = useState(false);
+          const [paletteColors, setPaletteColors] = useState(INITIAL_DMC_COLORS);
+
+          const { present: gridData, past, future } = history;
+          const canUndo = past.length > 0;
+          const canRedo = future.length > 0;
+
+          useEffect(() => {
+            const endDrawing = () => setIsDrawing(false);
+            window.addEventListener('mouseup', endDrawing);
+            window.addEventListener('touchend', endDrawing);
+            return () => {
+              window.removeEventListener('mouseup', endDrawing);
+              window.removeEventListener('touchend', endDrawing);
+            };
+          }, []);
+
+          const pushNewGridState = useCallback((newGrid) => {
+            setHistory(currentHistory => ({
+              past: [...currentHistory.past, currentHistory.present],
+              present: newGrid,
+              future: [],
+            }));
+          }, []);
+
+          useEffect(() => {
+            const oldSize = gridData.length;
+            if (gridSize === oldSize) return;
+            const newGrid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null));
+            const sizeToCopy = Math.min(gridSize, oldSize);
+            for (let i = 0; i < sizeToCopy; i++) {
+                for (let j = 0; j < sizeToCopy; j++) {
+                    newGrid[i][j] = gridData[i][j];
+                }
+            }
+            pushNewGridState(newGrid);
+          }, [gridSize, gridData.length, pushNewGridState]);
+
+          const handleCellInteraction = useCallback((row, col) => {
+            const wasStrokeStart = !isDrawing;
+            if (wasStrokeStart) {
+              setIsDrawing(true);
+            }
+
+            setHistory(currentHistory => {
+              const newGrid = currentHistory.present.map(r => [...r]);
+              const newColor = isErasing ? null : selectedColor;
+
+              if (newGrid[row][col] === newColor) {
+                return currentHistory;
+              }
+              
+              newGrid[row][col] = newColor;
+              
+              if (wasStrokeStart) {
+                return {
+                  past: [...currentHistory.past, currentHistory.present],
+                  present: newGrid,
+                  future: [],
+                };
+              } else {
+                return {
+                  ...currentHistory,
+                  present: newGrid,
+                };
+              }
+            });
+          }, [isDrawing, isErasing, selectedColor]);
+
+          const handleUndo = useCallback(() => {
+            if (!canUndo) return;
+            const previous = past[past.length - 1];
+            const newPast = past.slice(0, past.length - 1);
+            setHistory({ past: newPast, present: previous, future: [gridData, ...future] });
+          }, [canUndo, past, gridData, future]);
+
+          const handleRedo = useCallback(() => {
+            if (!canRedo) return;
+            const next = future[0];
+            const newFuture = future.slice(1);
+            setHistory({ past: [...past, gridData], present: next, future: newFuture });
+          }, [canRedo, future, gridData, past]);
+
+          const handleColorSelect = (color) => {
+            setSelectedColor(color);
+            setIsErasing(false);
+            setIsPaletteOpen(false);
+          };
+
+          const handleClearGrid = () => setShowModal(true);
+          const confirmClear = () => {
+            pushNewGridState(Array(gridSize).fill(null).map(() => Array(gridSize).fill(null)));
+            setShowModal(false);
+          };
+
+          const processImage = useCallback((imgSrc) => {
+            setIsLoading(true);
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = gridSize;
+                canvas.height = gridSize;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, gridSize, gridSize);
+                const imageData = ctx.getImageData(0, 0, gridSize, gridSize).data;
+                const newGrid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null));
+                for (let y = 0; y < gridSize; y++) {
+                    for (let x = 0; x < gridSize; x++) {
+                        const index = (y * gridSize + x) * 4;
+                        const r = imageData[index], g = imageData[index + 1], b = imageData[index + 2], a = imageData[index + 3];
+                        if (a > 128) {
+                            newGrid[y][x] = findClosestColor({ r, g, b }, paletteColors);
+                        }
+                    }
+                }
+                pushNewGridState(newGrid);
+                setIsLoading(false);
+            };
+            img.onerror = () => {
+                alert("Could not load the image.");
+                setIsLoading(false);
+            };
+            img.src = imgSrc;
+          }, [gridSize, pushNewGridState, paletteColors]);
+
+          const handleGeneratePattern = async () => {
+            if (!patternPrompt) return;
+            setIsGeneratingPattern(true);
+            const fullPrompt = `a simple, 8-bit, pixel-art style, centered image of: ${patternPrompt}. White background.`;
+            const payload = { instances: [{ prompt: fullPrompt }], parameters: { "sampleCount": 1 } };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.predictions && result.predictions[0]?.bytesBase64Encoded) {
+                    const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+                    processImage(imageUrl);
+                } else {
+                    console.error("API Error or malformed response:", result);
+                    alert("Sorry, couldn't generate a pattern. Please try again.");
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                alert("An error occurred while generating the pattern.");
+            } finally {
+                setIsGeneratingPattern(false);
+            }
+          };
+
+          const handleSuggestPalette = async () => {
+            if (!paletteTheme) return;
+            setIsSuggestingColors(true);
+            const prompt = `Generate a color palette of 16 complementary colors suitable for cross-stitching based on the theme: "${paletteTheme}". The colors should be distinct and work well together.`;
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: { "colors": { type: "ARRAY", items: { type: "STRING", description: "A hex color code, e.g., '#RRGGBB'" } } }
+                    }
+                }
+            };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    const json = JSON.parse(result.candidates[0].content.parts[0].text);
+                    if (json.colors && json.colors.length > 0) {
+                        setPaletteColors(json.colors);
+                    }
+                } else {
+                    console.error("API Error or malformed response:", result);
+                    alert("Sorry, couldn't suggest a palette. Please try again.");
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                alert("An error occurred while suggesting colors.");
+            } finally {
+                setIsSuggestingColors(false);
+            }
+          };
+
+          const handleExportPNG = () => {
+            const cellSize = 20;
+            const canvas = document.createElement('canvas');
+            canvas.width = gridSize * cellSize;
+            canvas.height = gridSize * cellSize;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let y = 0; y < gridSize; y++) {
+              for (let x = 0; x < gridSize; x++) {
+                const color = gridData[y][x];
+                const displayColor = color && isBlackAndWhite ? '#000000' : color;
+                if (displayColor) {
+                  const xPos = x * cellSize;
+                  const yPos = y * cellSize;
+                  if (stitchMode === 'cross') {
+                    ctx.strokeStyle = displayColor;
+                    ctx.lineWidth = Math.max(1, cellSize / 6);
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(xPos + cellSize * 0.15, yPos + cellSize * 0.15);
+                    ctx.lineTo(xPos + cellSize * 0.85, yPos + cellSize * 0.85);
+                    ctx.moveTo(xPos + cellSize * 0.85, yPos + cellSize * 0.15);
+                    ctx.lineTo(xPos + cellSize * 0.15, yPos + cellSize * 0.85);
+                    ctx.stroke();
+                  } else if (stitchMode === 'dot') {
+                    ctx.fillStyle = displayColor;
+                    ctx.beginPath();
+                    ctx.arc(xPos + cellSize / 2, yPos + cellSize / 2, cellSize * 0.4, 0, 2 * Math.PI);
+                    ctx.fill();
+                  }
+                }
+              }
+            }
+            const link = document.createElement('a');
+            link.download = 'pixel-art.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+          };
+
+          const gridStyle = useMemo(() => ({ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }), [gridSize]);
+
+          return (
+            <div className="min-h-screen bg-gray-200 text-black/80 p-4 sm:p-6 lg:p-8 font-roboto-mono">
+              <div className="max-w-7xl mx-auto">
+                <header className="text-center mb-6">
+                  <h1 className="text-5xl sm:text-6xl font-bold text-black/80 tracking-tighter">Pixel Art Studio</h1>
+                  <p className="text-base text-black/60 mt-2">Create pixel art with cross-stitch or dot modes, powered by Gemini.</p>
+                </header>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative">
+                  <main className="lg:col-span-2 bg-white/50 backdrop-blur-sm p-2 sm:p-4 rounded-2xl shadow-lg border border-white/20 relative">
+                    <div className="grid w-full aspect-square" style={gridStyle}>
+                      {gridData.map((row, rowIndex) => row.map((color, colIndex) => (
+                          <Cell 
+                            key={`${rowIndex}-${colIndex}`} 
+                            color={color} 
+                            onCellInteraction={() => handleCellInteraction(rowIndex, colIndex)} 
+                            onMouseEnterCell={() => handleCellInteraction(rowIndex, colIndex)}
+                            stitchMode={stitchMode} 
+                            isBlackAndWhite={isBlackAndWhite} 
+                          />
+                      )))}
+                    </div>
+                     <Toolbar
+                      onUndo={handleUndo} onRedo={handleRedo} canUndo={canUndo} canRedo={canRedo}
+                      onToggleEraser={() => setIsErasing(!isErasing)} isErasing={isErasing}
+                      onClear={handleClearGrid}
+                      onTogglePalette={() => setIsPaletteOpen(!isPaletteOpen)}
+                      selectedColor={selectedColor}
+                    />
+                    {isPaletteOpen && (
+                      <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10">
+                          <ColorPalette
+                              paletteColors={paletteColors} selectedColor={selectedColor} onColorSelect={handleColorSelect}
+                              onSuggestPalette={handleSuggestPalette} paletteTheme={paletteTheme} setPaletteTheme={setPaletteTheme} isSuggestingColors={isSuggestingColors}
+                          />
+                      </div>
+                    )}
+                  </main>
+                  <aside className="space-y-6">
+                    <Controls
+                      gridSize={gridSize} onGridSizeChange={setGridSize} onImageUpload={processImage}
+                      isLoading={isLoading || isGeneratingPattern} stitchMode={stitchMode} onStitchModeChange={setStitchMode}
+                      isBlackAndWhite={isBlackAndWhite} onBwToggle={() => setIsBlackAndWhite(!isBlackAndWhite)}
+                      onGeneratePattern={handleGeneratePattern} patternPrompt={patternPrompt} setPatternPrompt={setPatternPrompt} isGeneratingPattern={isGeneratingPattern}
+                      onExportPNG={handleExportPNG}
+                    />
+                  </aside>
+                  {(isLoading || isGeneratingPattern || isSuggestingColors) && (
+                      <div className="absolute inset-0 bg-gray-800/50 backdrop-blur-sm flex justify-center items-center z-30 rounded-lg">
+                          <div className="text-white text-2xl font-bold">
+                            {isGeneratingPattern ? '✨ Generating Pattern...' : isSuggestingColors ? '✨ Suggesting Colors...' : 'Processing...'}
+                          </div>
+                      </div>
+                  )}
+                  {showModal && (
+                    <div className="absolute inset-0 bg-gray-800/50 backdrop-blur-sm flex justify-center items-center z-30">
+                        <div className="bg-white p-8 rounded-2xl shadow-2xl text-center max-w-sm">
+                            <h3 className="text-xl font-bold mb-4">Are you sure?</h3>
+                            <p className="mb-6 text-black/60">Clearing the grid cannot be undone.</p>
+                            <div className="flex justify-center gap-4">
+                                <button onClick={confirmClear} className="px-6 py-2 bg-red-500 text-white font-bold rounded-full hover:bg-red-600">Yes, Clear It</button>
+                                <button onClick={() => setShowModal(false)} className="px-6 py-2 bg-gray-200 font-bold rounded-full hover:bg-gray-300">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

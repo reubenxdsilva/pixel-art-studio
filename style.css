@@ -1,0 +1,18 @@
+.font-roboto-mono { font-family: 'Roboto Mono', monospace; }
+.range-thumb::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #EF4444; /* red-500 */
+    border-radius: 50%;
+    cursor: pointer;
+    margin-top: -7px;
+}
+.range-thumb::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #EF4444; /* red-500 */
+    border-radius: 50%;
+    cursor: pointer;
+}
