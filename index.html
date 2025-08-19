@@ -11,19 +11,21 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- Babel to transpile JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Color Thief for palette generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
     <!-- Google Fonts: Roboto Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
         /* Custom styles from the React app */
-        .font-roboto-mono { font-family: 'Roboto Mono', monospace; }
+        body { font-family: 'Inter', sans-serif; }
         .range-thumb::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
             width: 20px;
             height: 20px;
-            background: #EF4444; /* red-500 */
+            background: #F97316; /* orange-500 */
             border-radius: 50%;
             cursor: pointer;
             margin-top: -7px;
@@ -31,7 +33,7 @@
         .range-thumb::-moz-range-thumb {
             width: 20px;
             height: 20px;
-            background: #EF4444; /* red-500 */
+            background: #F97316; /* orange-500 */
             border-radius: 50%;
             cursor: pointer;
         }
@@ -83,6 +85,13 @@
           }
           return closestColor;
         };
+
+        // Converts an RGB color object to a hex string
+        const rgbToHex = (r, g, b) => '#' + [r, g, b].map(x => {
+            const hex = x.toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        }).join('');
+
 
 
         // --- Default Color Palette (DMC-inspired) ---
@@ -162,60 +171,64 @@
         });
 
         // Displays the color palette in a popover
-        const ColorPalette = ({ paletteColors, selectedColor, onColorSelect, onSuggestPalette, paletteTheme, setPaletteTheme, isSuggestingColors }) => (
-          <div className="bg-white/70 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/20 w-80">
-            <h3 className="text-sm font-bold text-black/60 uppercase tracking-widest mb-3">Palette</h3>
-            <div className="grid grid-cols-8 gap-2 mb-4">
-              {paletteColors.map((color, index) => (
-                <div
-                  key={`${color}-${index}`}
-                  onClick={() => onColorSelect(color)}
-                  className={`w-8 h-8 rounded-full cursor-pointer transition-all duration-200 ${selectedColor === color ? 'ring-2 ring-offset-2 ring-red-500 scale-110' : 'ring-1 ring-black/10'}`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+        const ColorPalette = ({ paletteColors, selectedColor, onColorSelect, onImageUploadForPalette, onRemoveGeneratedPalette, hasGeneratedPalette }) => {
+          const handleFileChange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              onImageUploadForPalette(file);
+            }
+            e.target.value = null;
+          };
+
+          return (
+            <div className="bg-white p-4 border border-black/20 w-80">
+              <h3 className="text-sm font-bold text-black/60 uppercase tracking-widest mb-3">Palette</h3>
+              <div className="grid grid-cols-8 gap-2 mb-4">
+                {paletteColors.map((color, index) => (
+                  <div
+                    key={`${color}-${index}`}
+                    onClick={() => onColorSelect(color)}
+                    className={`w-8 h-8 rounded-full cursor-pointer transition-all duration-200 ${selectedColor === color ? 'ring-2 ring-offset-2 ring-orange-500 scale-110' : 'ring-1 ring-black/10'}`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="palette-upload" className="flex-1 text-center p-2 text-sm font-bold transition-colors cursor-pointer bg-gray-100 text-black/80 hover:bg-gray-200">
+                    Upload Image
+                </label>
+                <input id="palette-upload" type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                {hasGeneratedPalette && (
+                    <button onClick={onRemoveGeneratedPalette} className="p-2" title="Remove generated palette">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                )}
+              </div>
             </div>
-             <div className="space-y-2">
-                <input 
-                    type="text" 
-                    value={paletteTheme}
-                    onChange={(e) => setPaletteTheme(e.target.value)}
-                    placeholder="e.g., 'autumn forest'"
-                    className="w-full p-3 rounded-xl bg-gray-200/80 border-transparent focus:ring-2 focus:ring-red-500 focus:border-transparent transition"
-                    disabled={isSuggestingColors}
-                />
-                <button
-                    onClick={onSuggestPalette}
-                    disabled={isSuggestingColors || !paletteTheme}
-                    className="w-full p-3 rounded-xl text-white font-bold transition-all duration-300 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:saturate-50 disabled:cursor-not-allowed"
-                >
-                    {isSuggestingColors ? 'Thinking...' : 'Suggest Palette'}
-                </button>
-            </div>
-          </div>
-        );
+          );
+        };
 
         // Main Toolbar for core editing actions
         const Toolbar = ({ onUndo, onRedo, canUndo, canRedo, onToggleEraser, isErasing, onClear, onTogglePalette, selectedColor }) => (
-            <div className="absolute top-4 right-4 bg-white/50 backdrop-blur-sm p-2 rounded-full shadow-lg border border-white/20 flex items-center gap-2 z-20">
-              <button onClick={onUndo} disabled={!canUndo} className="p-3 rounded-full text-black/80 transition-colors bg-gray-200/0 hover:bg-gray-300/80 disabled:opacity-50 disabled:cursor-not-allowed">
+            <div className="absolute top-4 right-4 bg-white p-2 border border-black/20 flex items-center gap-2 z-20">
+              <button onClick={onUndo} disabled={!canUndo} className="p-3 text-black/80 transition-colors hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h13a5 5 0 0 1 5 5v7"/><path d="M7 5 3 9l4 4"/></svg>
               </button>
-              <button onClick={onRedo} disabled={!canRedo} className="p-3 rounded-full text-black/80 transition-colors bg-gray-200/0 hover:bg-gray-300/80 disabled:opacity-50 disabled:cursor-not-allowed">
+              <button onClick={onRedo} disabled={!canRedo} className="p-3 text-black/80 transition-colors hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 9H8a5 5 0 0 0-5 5v7"/><path d="m17 5 4 4-4 4"/></svg>
               </button>
               <button onClick={onTogglePalette} className="w-10 h-10 rounded-full ring-2 ring-offset-2 ring-transparent transition-all" style={{backgroundColor: selectedColor}}></button>
-              <button onClick={onToggleEraser} className={`p-3 rounded-full transition-colors ${isErasing ? 'bg-red-500 text-white' : 'text-black/80 bg-gray-200/0 hover:bg-gray-300/80'}`}>
+              <button onClick={onToggleEraser} className={`p-3 transition-colors ${isErasing ? 'bg-orange-500 text-white' : 'text-black/80 hover:bg-gray-100'}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21H7Z"/><path d="M22 21H7"/><path d="m5 12 5 5"/></svg>
               </button>
-              <button onClick={onClear} className="p-3 rounded-full text-black/80 transition-colors bg-gray-200/0 hover:bg-gray-300/80">
+              <button onClick={onClear} className="p-3 text-black/80 transition-colors hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
               </button>
             </div>
         );
 
         // Contains all other control elements
-        const Controls = ({ gridSize, onGridSizeChange, onImageUpload, isLoading, stitchMode, onStitchModeChange, isBlackAndWhite, onBwToggle, onGeneratePattern, patternPrompt, setPatternPrompt, isGeneratingPattern, onExportPNG, useRoundedCorners, onRoundedCornersToggle }) => {
+        const Controls = ({ gridSize, onGridSizeChange, onImageUpload, isLoading, stitchMode, onStitchModeChange, isBlackAndWhite, onBwToggle, onExportPNG, useRoundedCorners, onRoundedCornersToggle }) => {
           const handleFileUpload = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -227,61 +240,42 @@
           };
 
           return (
-            <div className="bg-white/50 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/20 space-y-5">
-                <div className="space-y-2">
-                    <label className="text-sm font-bold text-black/60 uppercase tracking-widest">Generate from Idea</label>
-                    <input 
-                        type="text" 
-                        value={patternPrompt}
-                        onChange={(e) => setPatternPrompt(e.target.value)}
-                        placeholder="e.g., 'a happy little robot'"
-                        className="w-full p-3 rounded-xl bg-gray-200/80 border-transparent focus:ring-2 focus:ring-red-500 focus:border-transparent transition"
-                        disabled={isGeneratingPattern}
-                    />
-                    <button
-                        onClick={onGeneratePattern}
-                        disabled={isGeneratingPattern || !patternPrompt}
-                        className="w-full p-3 rounded-xl text-white font-bold transition-all duration-300 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:saturate-50 disabled:cursor-not-allowed"
-                    >
-                        {isGeneratingPattern ? 'Creating...' : 'Generate Pattern'}
-                    </button>
-                </div>
-                
-                <div className="p-1 bg-gray-200/80 rounded-full flex">
-                    <button onClick={() => onStitchModeChange('cross')} className={`w-1/3 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'cross' ? 'bg-black text-white' : 'text-black/60'}`}>Cross</button>
-                    <button onClick={() => onStitchModeChange('dot')} className={`w-1/3 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'dot' ? 'bg-black text-white' : 'text-black/60'}`}>Dot</button>
-                    <button onClick={() => onStitchModeChange('pixel')} className={`w-1/3 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'pixel' ? 'bg-black text-white' : 'text-black/60'}`}>Pixel</button>
+            <div className="border border-black/20 p-4 space-y-4">
+                <div className="p-1 bg-gray-100 flex border border-black/20">
+                    <button onClick={() => onStitchModeChange('cross')} className={`w-1/3 py-2 px-4 text-sm font-bold transition-all ${stitchMode === 'cross' ? 'bg-black text-white' : 'text-black/60'}`}>Cross</button>
+                    <button onClick={() => onStitchModeChange('dot')} className={`w-1/3 py-2 px-4 text-sm font-bold transition-all ${stitchMode === 'dot' ? 'bg-black text-white' : 'text-black/60'}`}>Dot</button>
+                    <button onClick={() => onStitchModeChange('pixel')} className={`w-1/3 py-2 px-4 text-sm font-bold transition-all ${stitchMode === 'pixel' ? 'bg-black text-white' : 'text-black/60'}`}>Pixel</button>
                 </div>
 
                 {stitchMode === 'pixel' && (
-                    <label htmlFor="rounded-corners-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-200/80 rounded-full">
+                    <label htmlFor="rounded-corners-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-100 border border-black/20">
                         <span className="text-sm font-bold text-black/60">Rounded Corners</span>
                         <div className="relative">
                             <input type="checkbox" id="rounded-corners-mode" className="sr-only peer" checked={useRoundedCorners} onChange={onRoundedCornersToggle} />
-                            <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-checked:bg-red-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                            <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-checked:bg-orange-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                         </div>
                     </label>
                 )}
 
-                <label htmlFor="bw-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-200/80 rounded-full">
+                <label htmlFor="bw-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-100 border border-black/20">
                     <span className="text-sm font-bold text-black/60">B&W Mode</span>
                     <div className="relative">
                         <input type="checkbox" id="bw-mode" className="sr-only peer" checked={isBlackAndWhite} onChange={onBwToggle} />
-                        <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-checked:bg-red-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-checked:bg-orange-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                     </div>
                 </label>
                 
                 <div>
                     <label htmlFor="gridSize" className="text-sm font-bold text-black/60 uppercase tracking-widest">Grid Size: {gridSize}</label>
-                    <input type="range" id="gridSize" min="16" max="64" step="8" value={gridSize} onChange={(e) => onGridSizeChange(Number(e.target.value))} className="w-full h-2 bg-gray-300/80 rounded-lg appearance-none cursor-pointer range-thumb" disabled={isLoading}/>
+                    <input type="range" id="gridSize" min="16" max="64" step="8" value={gridSize} onChange={(e) => onGridSizeChange(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-thumb" disabled={isLoading}/>
                 </div>
                 
                 <div className="flex">
-                    <label htmlFor="imageUpload" className={`flex-1 text-center p-3 rounded-l-xl font-bold transition-colors cursor-pointer ${isLoading ? 'bg-gray-400 text-white/80' : 'bg-gray-200/80 text-black/80 hover:bg-gray-300/80'}`}>
+                    <label htmlFor="imageUpload" className={`flex-1 text-center p-3 font-bold transition-colors cursor-pointer ${isLoading ? 'bg-gray-400 text-white/80' : 'bg-gray-100 text-black/80 hover:bg-gray-200'}`}>
                         {isLoading ? 'Processing...' : 'Upload'}
                     </label>
                     <input id="imageUpload" type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isLoading} />
-                    <button onClick={onExportPNG} disabled={isLoading} className="flex-1 p-3 bg-black text-white font-bold rounded-r-xl transition-colors disabled:opacity-50">
+                    <button onClick={onExportPNG} disabled={isLoading} className="flex-1 p-3 bg-black text-white font-bold transition-colors disabled:opacity-50">
                         Export
                     </button>
                 </div>
@@ -306,11 +300,8 @@
           const [isDrawing, setIsDrawing] = useState(false);
           const [isPaletteOpen, setIsPaletteOpen] = useState(false);
           const [useRoundedCorners, setUseRoundedCorners] = useState(false);
+          const [hasGeneratedPalette, setHasGeneratedPalette] = useState(false);
           
-          const [patternPrompt, setPatternPrompt] = useState('');
-          const [isGeneratingPattern, setIsGeneratingPattern] = useState(false);
-          const [paletteTheme, setPaletteTheme] = useState('');
-          const [isSuggestingColors, setIsSuggestingColors] = useState(false);
           const [paletteColors, setPaletteColors] = useState(INITIAL_DMC_COLORS);
 
           const { present: gridData, past, future } = history;
@@ -444,88 +435,40 @@
             img.src = imgSrc;
           }, [gridSize, pushNewGridState, paletteColors]);
 
-          const handleGeneratePattern = async () => {
-            if (!patternPrompt) return;
-            setIsGeneratingPattern(true);
-            const fullPrompt = `a simple, 8-bit, pixel-art style, centered image of: ${patternPrompt}. White background.`;
-            const payload = { instances: [{ prompt: fullPrompt }], parameters: { "sampleCount": 1 } };
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                if (result.predictions && result.predictions[0]?.bytesBase64Encoded) {
-                    const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
-                    processImage(imageUrl);
-                } else {
-                    console.error("API Error or malformed response:", result);
-                    alert("Sorry, couldn't generate a pattern. Please try again.");
-                }
-            } catch (error) {
-                console.error("Error calling Gemini API:", error);
-                alert("An error occurred while generating the pattern.");
-            } finally {
-                setIsGeneratingPattern(false);
-            }
+          const handleImageUploadForPalette = (file) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const colorThief = new ColorThief();
+                    const palette = colorThief.getPalette(img, 8);
+                    const hexPalette = palette.map(rgb => rgbToHex(rgb[0], rgb[1], rgb[2]));
+                    setPaletteColors(hexPalette);
+                    setHasGeneratedPalette(true);
+                    setIsPaletteOpen(false);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
           };
 
-          const handleSuggestPalette = async () => {
-            if (!paletteTheme) return;
-            setIsSuggestingColors(true);
-            const prompt = `Generate a color palette of 16 complementary colors suitable for cross-stitching based on the theme: "${paletteTheme}". The colors should be distinct and work well together.`;
-            const payload = {
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "OBJECT",
-                        properties: { "colors": { type: "ARRAY", items: { type: "STRING", description: "A hex color code, e.g., '#RRGGBB'" } } }
-                    }
-                }
-            };
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    const json = JSON.parse(result.candidates[0].content.parts[0].text);
-                    if (json.colors && json.colors.length > 0) {
-                        setPaletteColors(json.colors);
-                    }
-                } else {
-                    console.error("API Error or malformed response:", result);
-                    alert("Sorry, couldn't suggest a palette. Please try again.");
-                }
-            } catch (error) {
-                console.error("Error calling Gemini API:", error);
-                alert("An error occurred while suggesting colors.");
-            } finally {
-                setIsSuggestingColors(false);
-            }
+          const handleRemoveGeneratedPalette = () => {
+            setPaletteColors(INITIAL_DMC_COLORS);
+            setHasGeneratedPalette(false);
           };
 
           const handleExportPNG = () => {
+            const currentGridSize = gridData.length;
             const cellSize = 20;
             const canvas = document.createElement('canvas');
-            canvas.width = gridSize * cellSize;
-            canvas.height = gridSize * cellSize;
+            canvas.width = currentGridSize * cellSize;
+            canvas.height = currentGridSize * cellSize;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            for (let y = 0; y < gridSize; y++) {
-              for (let x = 0; x < gridSize; x++) {
+            for (let y = 0; y < currentGridSize; y++) {
+              for (let x = 0; x < currentGridSize; x++) {
                 const color = gridData[y][x];
                 const displayColor = color && isBlackAndWhite ? '#000000' : color;
                 if (displayColor) {
@@ -551,9 +494,9 @@
                     if (useRoundedCorners) {
                         const neighbors = {
                             top: y > 0 && !!gridData[y - 1][x],
-                            bottom: y < gridSize - 1 && !!gridData[y + 1][x],
+                            bottom: y < currentGridSize - 1 && !!gridData[y + 1][x],
                             left: x > 0 && !!gridData[y][x - 1],
-                            right: x < gridSize - 1 && !!gridData[y][x + 1],
+                            right: x < currentGridSize - 1 && !!gridData[y][x + 1],
                         };
                         const radius = cellSize * 0.3;
                         ctx.beginPath();
@@ -604,21 +547,18 @@
           const gridStyle = useMemo(() => ({ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }), [gridSize]);
 
           return (
-            <div className="min-h-screen bg-gray-200 text-black/80 p-4 sm:p-6 lg:p-8 font-roboto-mono">
+            <div className="min-h-screen bg-white text-black/80 p-4 sm:p-6 lg:p-8">
               <div className="max-w-7xl mx-auto">
-                <header className="text-center mb-6">
-                  <h1 className="text-5xl sm:text-6xl font-bold text-black/80 tracking-tighter">Pixel Art Studio</h1>
-                  <p className="text-base text-black/60 mt-2">Create pixel art with cross-stitch or dot modes, powered by Gemini.</p>
-                </header>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative">
-                  <main className="lg:col-span-2 bg-white/50 backdrop-blur-sm p-2 sm:p-4 rounded-2xl shadow-lg border border-white/20 relative">
+                  <main className="lg:col-span-2 bg-white p-2 sm:p-4 border border-black/20 relative">
                     <div className="grid w-full aspect-square" style={gridStyle}>
                       {gridData.map((row, rowIndex) => row.map((color, colIndex) => {
+                          const currentGridSize = gridData.length;
                           const neighbors = {
                             top: rowIndex > 0 && !!gridData[rowIndex - 1][colIndex],
-                            bottom: rowIndex < gridSize - 1 && !!gridData[rowIndex + 1][colIndex],
+                            bottom: rowIndex < currentGridSize - 1 && !!gridData[rowIndex + 1][colIndex],
                             left: colIndex > 0 && !!gridData[rowIndex][colIndex - 1],
-                            right: colIndex < gridSize - 1 && !!gridData[rowIndex][colIndex + 1],
+                            right: colIndex < currentGridSize - 1 && !!gridData[rowIndex][colIndex + 1],
                           };
                           return (
                             <Cell 
@@ -644,8 +584,12 @@
                     {isPaletteOpen && (
                       <div className="absolute top-20 right-0 z-10">
                           <ColorPalette
-                              paletteColors={paletteColors} selectedColor={selectedColor} onColorSelect={handleColorSelect}
-                              onSuggestPalette={handleSuggestPalette} paletteTheme={paletteTheme} setPaletteTheme={setPaletteTheme} isSuggestingColors={isSuggestingColors}
+                              paletteColors={paletteColors} 
+                              selectedColor={selectedColor} 
+                              onColorSelect={handleColorSelect}
+                              onImageUploadForPalette={handleImageUploadForPalette}
+                              onRemoveGeneratedPalette={handleRemoveGeneratedPalette}
+                              hasGeneratedPalette={hasGeneratedPalette}
                           />
                       </div>
                     )}
@@ -653,28 +597,27 @@
                   <aside className="space-y-6">
                     <Controls
                       gridSize={gridSize} onGridSizeChange={setGridSize} onImageUpload={processImage}
-                      isLoading={isLoading || isGeneratingPattern} stitchMode={stitchMode} onStitchModeChange={setStitchMode}
+                      isLoading={isLoading} stitchMode={stitchMode} onStitchModeChange={setStitchMode}
                       isBlackAndWhite={isBlackAndWhite} onBwToggle={() => setIsBlackAndWhite(!isBlackAndWhite)}
-                      onGeneratePattern={handleGeneratePattern} patternPrompt={patternPrompt} setPatternPrompt={setPatternPrompt} isGeneratingPattern={isGeneratingPattern}
                       onExportPNG={handleExportPNG}
                       useRoundedCorners={useRoundedCorners} onRoundedCornersToggle={() => setUseRoundedCorners(!useRoundedCorners)}
                     />
                   </aside>
-                  {(isLoading || isGeneratingPattern || isSuggestingColors) && (
-                      <div className="absolute inset-0 bg-gray-800/50 backdrop-blur-sm flex justify-center items-center z-30 rounded-lg">
+                  {isLoading && (
+                      <div className="absolute inset-0 bg-gray-800/50 backdrop-blur-sm flex justify-center items-center z-30">
                           <div className="text-white text-2xl font-bold">
-                            {isGeneratingPattern ? '✨ Generating Pattern...' : isSuggestingColors ? '✨ Suggesting Colors...' : 'Processing...'}
+                            Processing...
                           </div>
                       </div>
                   )}
                   {showModal && (
                     <div className="absolute inset-0 bg-gray-800/50 backdrop-blur-sm flex justify-center items-center z-30">
-                        <div className="bg-white p-8 rounded-2xl shadow-2xl text-center max-w-sm">
+                        <div className="bg-white p-8 shadow-2xl text-center max-w-sm border border-black/20">
                             <h3 className="text-xl font-bold mb-4">Are you sure?</h3>
                             <p className="mb-6 text-black/60">Clearing the grid cannot be undone.</p>
                             <div className="flex justify-center gap-4">
-                                <button onClick={confirmClear} className="px-6 py-2 bg-red-500 text-white font-bold rounded-full hover:bg-red-600">Yes, Clear It</button>
-                                <button onClick={() => setShowModal(false)} className="px-6 py-2 bg-gray-200 font-bold rounded-full hover:bg-gray-300">Cancel</button>
+                                <button onClick={confirmClear} className="px-6 py-2 bg-orange-500 text-white font-bold hover:bg-orange-600">Yes, Clear It</button>
+                                <button onClick={() => setShowModal(false)} className="px-6 py-2 bg-gray-200 font-bold hover:bg-gray-300">Cancel</button>
                             </div>
                         </div>
                     </div>
