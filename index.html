@@ -99,7 +99,7 @@
         // --- React Components ---
 
         // Represents a single cell in the cross-stitch grid
-        const Cell = React.memo(({ color, onCellInteraction, onMouseEnterCell, stitchMode, isBlackAndWhite, neighbors }) => {
+        const Cell = React.memo(({ color, onCellInteraction, onMouseEnterCell, stitchMode, isBlackAndWhite, useRoundedCorners, neighbors }) => {
           const handleInteraction = (e) => {
             e.preventDefault();
             onCellInteraction();
@@ -116,7 +116,7 @@
             }
           };
           
-          const cellClass = stitchMode === 'cross' || stitchMode === 'pixel' || stitchMode === 'rounded' ? "border border-gray-300/50" : "border border-transparent";
+          const cellClass = stitchMode === 'cross' || stitchMode === 'pixel' ? "border border-gray-300/50" : "border border-transparent";
           const displayColor = color && isBlackAndWhite ? '#000000' : color;
 
           const style = {
@@ -126,14 +126,14 @@
           if (displayColor) {
               if (stitchMode === 'pixel') {
                   style.backgroundColor = displayColor;
-              } else if (stitchMode === 'rounded') {
-                  style.backgroundColor = displayColor;
-                  const { top, bottom, left, right } = neighbors;
-                  const tl = top || left ? '0' : '30%';
-                  const tr = top || right ? '0' : '30%';
-                  const bl = bottom || left ? '0' : '30%';
-                  const br = bottom || right ? '0' : '30%';
-                  style.borderRadius = `${tl} ${tr} ${br} ${bl}`;
+                  if (useRoundedCorners) {
+                    const { top, bottom, left, right } = neighbors;
+                    const tl = top || left ? '0' : '30%';
+                    const tr = top || right ? '0' : '30%';
+                    const bl = bottom || left ? '0' : '30%';
+                    const br = bottom || right ? '0' : '30%';
+                    style.borderRadius = `${tl} ${tr} ${br} ${bl}`;
+                  }
               }
           }
 
@@ -215,7 +215,7 @@
         );
 
         // Contains all other control elements
-        const Controls = ({ gridSize, onGridSizeChange, onImageUpload, isLoading, stitchMode, onStitchModeChange, isBlackAndWhite, onBwToggle, onGeneratePattern, patternPrompt, setPatternPrompt, isGeneratingPattern, onExportPNG }) => {
+        const Controls = ({ gridSize, onGridSizeChange, onImageUpload, isLoading, stitchMode, onStitchModeChange, isBlackAndWhite, onBwToggle, onGeneratePattern, patternPrompt, setPatternPrompt, isGeneratingPattern, onExportPNG, useRoundedCorners, onRoundedCornersToggle }) => {
           const handleFileUpload = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -248,11 +248,20 @@
                 </div>
                 
                 <div className="p-1 bg-gray-200/80 rounded-full flex">
-                    <button onClick={() => onStitchModeChange('cross')} className={`w-1/4 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'cross' ? 'bg-black text-white' : 'text-black/60'}`}>Cross</button>
-                    <button onClick={() => onStitchModeChange('dot')} className={`w-1/4 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'dot' ? 'bg-black text-white' : 'text-black/60'}`}>Dot</button>
-                    <button onClick={() => onStitchModeChange('pixel')} className={`w-1/4 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'pixel' ? 'bg-black text-white' : 'text-black/60'}`}>Pixel</button>
-                    <button onClick={() => onStitchModeChange('rounded')} className={`w-1/4 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'rounded' ? 'bg-black text-white' : 'text-black/60'}`}>Rounded</button>
+                    <button onClick={() => onStitchModeChange('cross')} className={`w-1/3 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'cross' ? 'bg-black text-white' : 'text-black/60'}`}>Cross</button>
+                    <button onClick={() => onStitchModeChange('dot')} className={`w-1/3 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'dot' ? 'bg-black text-white' : 'text-black/60'}`}>Dot</button>
+                    <button onClick={() => onStitchModeChange('pixel')} className={`w-1/3 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'pixel' ? 'bg-black text-white' : 'text-black/60'}`}>Pixel</button>
                 </div>
+
+                {stitchMode === 'pixel' && (
+                    <label htmlFor="rounded-corners-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-200/80 rounded-full">
+                        <span className="text-sm font-bold text-black/60">Rounded Corners</span>
+                        <div className="relative">
+                            <input type="checkbox" id="rounded-corners-mode" className="sr-only peer" checked={useRoundedCorners} onChange={onRoundedCornersToggle} />
+                            <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-checked:bg-red-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </div>
+                    </label>
+                )}
 
                 <label htmlFor="bw-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-200/80 rounded-full">
                     <span className="text-sm font-bold text-black/60">B&W Mode</span>
@@ -296,6 +305,7 @@
           const [isBlackAndWhite, setIsBlackAndWhite] = useState(false);
           const [isDrawing, setIsDrawing] = useState(false);
           const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+          const [useRoundedCorners, setUseRoundedCorners] = useState(false);
           
           const [patternPrompt, setPatternPrompt] = useState('');
           const [isGeneratingPattern, setIsGeneratingPattern] = useState(false);
@@ -326,17 +336,26 @@
           }, []);
 
           useEffect(() => {
-            const oldSize = gridData.length;
-            if (gridSize === oldSize) return;
-            const newGrid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null));
-            const sizeToCopy = Math.min(gridSize, oldSize);
-            for (let i = 0; i < sizeToCopy; i++) {
-                for (let j = 0; j < sizeToCopy; j++) {
-                    newGrid[i][j] = gridData[i][j];
+            setHistory(currentHistory => {
+                const oldGrid = currentHistory.present;
+                const oldSize = oldGrid.length;
+                if (gridSize === oldSize) {
+                    return currentHistory;
                 }
-            }
-            pushNewGridState(newGrid);
-          }, [gridSize, gridData, pushNewGridState]);
+                const newGrid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null));
+                const sizeToCopy = Math.min(gridSize, oldSize);
+                for (let i = 0; i < sizeToCopy; i++) {
+                    for (let j = 0; j < sizeToCopy; j++) {
+                        newGrid[i][j] = oldGrid[i][j];
+                    }
+                }
+                return {
+                    past: [...currentHistory.past, oldGrid],
+                    present: newGrid,
+                    future: [],
+                };
+            });
+          }, [gridSize]);
 
           const handleCellInteraction = useCallback((row, col) => {
             const wasStrokeStart = !isDrawing;
@@ -529,22 +548,49 @@
                     ctx.fill();
                   } else if (stitchMode === 'pixel') {
                     ctx.fillStyle = displayColor;
-                    ctx.fillRect(xPos, yPos, cellSize, cellSize);
-                  } else if (stitchMode === 'rounded') {
-                      const radius = cellSize * 0.3;
-                      ctx.fillStyle = displayColor;
-                      ctx.beginPath();
-                      ctx.moveTo(xPos + radius, yPos);
-                      ctx.lineTo(xPos + cellSize - radius, yPos);
-                      ctx.quadraticCurveTo(xPos + cellSize, yPos, xPos + cellSize, yPos + radius);
-                      ctx.lineTo(xPos + cellSize, yPos + cellSize - radius);
-                      ctx.quadraticCurveTo(xPos + cellSize, yPos + cellSize, xPos + cellSize - radius, yPos + cellSize);
-                      ctx.lineTo(xPos + radius, yPos + cellSize);
-                      ctx.quadraticCurveTo(xPos, yPos + cellSize, xPos, yPos + cellSize - radius);
-                      ctx.lineTo(xPos, yPos + radius);
-                      ctx.quadraticCurveTo(xPos, yPos, xPos + radius, yPos);
-                      ctx.closePath();
-                      ctx.fill();
+                    if (useRoundedCorners) {
+                        const neighbors = {
+                            top: y > 0 && !!gridData[y - 1][x],
+                            bottom: y < gridSize - 1 && !!gridData[y + 1][x],
+                            left: x > 0 && !!gridData[y][x - 1],
+                            right: x < gridSize - 1 && !!gridData[y][x + 1],
+                        };
+                        const radius = cellSize * 0.3;
+                        ctx.beginPath();
+                        ctx.moveTo(xPos + radius, yPos);
+                        ctx.lineTo(xPos + cellSize - radius, yPos);
+                        if (!(neighbors.top || neighbors.right)) {
+                            ctx.quadraticCurveTo(xPos + cellSize, yPos, xPos + cellSize, yPos + radius);
+                        } else {
+                            ctx.lineTo(xPos + cellSize, yPos);
+                            ctx.lineTo(xPos + cellSize, yPos + radius);
+                        }
+                        ctx.lineTo(xPos + cellSize, yPos + cellSize - radius);
+                        if (!(neighbors.bottom || neighbors.right)) {
+                            ctx.quadraticCurveTo(xPos + cellSize, yPos + cellSize, xPos + cellSize - radius, yPos + cellSize);
+                        } else {
+                            ctx.lineTo(xPos + cellSize, yPos + cellSize);
+                            ctx.lineTo(xPos + cellSize - radius, yPos + cellSize);
+                        }
+                        ctx.lineTo(xPos + radius, yPos + cellSize);
+                        if (!(neighbors.bottom || neighbors.left)) {
+                            ctx.quadraticCurveTo(xPos, yPos + cellSize, xPos, yPos + cellSize - radius);
+                        } else {
+                            ctx.lineTo(xPos, yPos + cellSize);
+                            ctx.lineTo(xPos, yPos + cellSize - radius);
+                        }
+                        ctx.lineTo(xPos, yPos + radius);
+                        if (!(neighbors.top || neighbors.left)) {
+                            ctx.quadraticCurveTo(xPos, yPos, xPos + radius, yPos);
+                        } else {
+                            ctx.lineTo(xPos, yPos);
+                            ctx.lineTo(xPos + radius, yPos);
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                    } else {
+                        ctx.fillRect(xPos, yPos, cellSize, cellSize);
+                    }
                   }
                 }
               }
@@ -569,14 +615,10 @@
                     <div className="grid w-full aspect-square" style={gridStyle}>
                       {gridData.map((row, rowIndex) => row.map((color, colIndex) => {
                           const neighbors = {
-                            top: rowIndex > 0 && gridData[rowIndex - 1][colIndex],
-                            bottom: rowIndex < gridSize - 1 && gridData[rowIndex + 1][colIndex],
-                            left: colIndex > 0 && gridData[rowIndex][colIndex - 1],
-                            right: colIndex < gridSize - 1 && gridData[rowIndex][colIndex + 1],
-                            topLeft: rowIndex > 0 && colIndex > 0 && gridData[rowIndex - 1][colIndex - 1],
-                            topRight: rowIndex > 0 && colIndex < gridSize - 1 && gridData[rowIndex - 1][colIndex + 1],
-                            bottomLeft: rowIndex < gridSize - 1 && colIndex > 0 && gridData[rowIndex + 1][colIndex - 1],
-                            bottomRight: rowIndex < gridSize - 1 && colIndex < gridSize - 1 && gridData[rowIndex + 1][colIndex + 1],
+                            top: rowIndex > 0 && !!gridData[rowIndex - 1][colIndex],
+                            bottom: rowIndex < gridSize - 1 && !!gridData[rowIndex + 1][colIndex],
+                            left: colIndex > 0 && !!gridData[rowIndex][colIndex - 1],
+                            right: colIndex < gridSize - 1 && !!gridData[rowIndex][colIndex + 1],
                           };
                           return (
                             <Cell 
@@ -585,7 +627,8 @@
                               onCellInteraction={() => handleCellInteraction(rowIndex, colIndex)} 
                               onMouseEnterCell={() => handleCellInteraction(rowIndex, colIndex)}
                               stitchMode={stitchMode} 
-                              isBlackAndWhite={isBlackAndWhite} 
+                              isBlackAndWhite={isBlackAndWhite}
+                              useRoundedCorners={useRoundedCorners}
                               neighbors={neighbors}
                             />
                           )
@@ -614,6 +657,7 @@
                       isBlackAndWhite={isBlackAndWhite} onBwToggle={() => setIsBlackAndWhite(!isBlackAndWhite)}
                       onGeneratePattern={handleGeneratePattern} patternPrompt={patternPrompt} setPatternPrompt={setPatternPrompt} isGeneratingPattern={isGeneratingPattern}
                       onExportPNG={handleExportPNG}
+                      useRoundedCorners={useRoundedCorners} onRoundedCornersToggle={() => setUseRoundedCorners(!useRoundedCorners)}
                     />
                   </aside>
                   {(isLoading || isGeneratingPattern || isSuggestingColors) && (
