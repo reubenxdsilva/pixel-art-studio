@@ -99,7 +99,7 @@
         // --- React Components ---
 
         // Represents a single cell in the cross-stitch grid
-        const Cell = React.memo(({ color, onCellInteraction, onMouseEnterCell, stitchMode, isBlackAndWhite }) => {
+        const Cell = React.memo(({ color, onCellInteraction, onMouseEnterCell, stitchMode, isBlackAndWhite, neighbors }) => {
           const handleInteraction = (e) => {
             e.preventDefault();
             onCellInteraction();
@@ -115,18 +115,38 @@
                 element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
             }
           };
-          const cellClass = stitchMode === 'cross' ? "border border-gray-300/50" : "border border-transparent";
+          
+          const cellClass = stitchMode === 'cross' || stitchMode === 'pixel' || stitchMode === 'rounded' ? "border border-gray-300/50" : "border border-transparent";
           const displayColor = color && isBlackAndWhite ? '#000000' : color;
+
+          const style = {
+              touchAction: 'none'
+          };
+
+          if (displayColor) {
+              if (stitchMode === 'pixel') {
+                  style.backgroundColor = displayColor;
+              } else if (stitchMode === 'rounded') {
+                  style.backgroundColor = displayColor;
+                  const { top, bottom, left, right } = neighbors;
+                  const tl = top || left ? '0' : '30%';
+                  const tr = top || right ? '0' : '30%';
+                  const bl = bottom || left ? '0' : '30%';
+                  const br = bottom || right ? '0' : '30%';
+                  style.borderRadius = `${tl} ${tr} ${br} ${bl}`;
+              }
+          }
+
 
           return (
             <div
               className={`aspect-square flex justify-center items-center select-none ${cellClass}`}
-              style={{ backgroundColor: 'transparent', touchAction: 'none' }}
+              style={style}
               onMouseDown={handleInteraction} onMouseEnter={handleMouseEnter} onTouchStart={handleInteraction} onTouchMove={handleTouchMove}
             >
-              {displayColor && stitchMode === 'cross' && (
+              {displayColor && stitchMode === 'cross' && (  
                 <svg viewBox="0 0 100 100" className="w-full h-full pointer-events-none" style={{ color: displayColor }}>
-                  <path d="M15 15 L85 85 M85 15 L15 85" stroke="currentColor" strokeWidth="15" strokeLinecap="round" />
+                  <path d="M15 15 L85 85 M85 15 L15 85" stroke="currentColor" strokeWidth="20" strokeLinecap="round" />
                 </svg>
               )}
               {displayColor && stitchMode === 'dot' && (
@@ -228,8 +248,10 @@
                 </div>
                 
                 <div className="p-1 bg-gray-200/80 rounded-full flex">
-                    <button onClick={() => onStitchModeChange('cross')} className={`w-1/2 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'cross' ? 'bg-black text-white' : 'text-black/60'}`}>Cross</button>
-                    <button onClick={() => onStitchModeChange('dot')} className={`w-1/2 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'dot' ? 'bg-black text-white' : 'text-black/60'}`}>Dot</button>
+                    <button onClick={() => onStitchModeChange('cross')} className={`w-1/4 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'cross' ? 'bg-black text-white' : 'text-black/60'}`}>Cross</button>
+                    <button onClick={() => onStitchModeChange('dot')} className={`w-1/4 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'dot' ? 'bg-black text-white' : 'text-black/60'}`}>Dot</button>
+                    <button onClick={() => onStitchModeChange('pixel')} className={`w-1/4 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'pixel' ? 'bg-black text-white' : 'text-black/60'}`}>Pixel</button>
+                    <button onClick={() => onStitchModeChange('rounded')} className={`w-1/4 py-2 px-4 rounded-full text-sm font-bold transition-all ${stitchMode === 'rounded' ? 'bg-black text-white' : 'text-black/60'}`}>Rounded</button>
                 </div>
 
                 <label htmlFor="bw-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-200/80 rounded-full">
@@ -314,7 +336,7 @@
                 }
             }
             pushNewGridState(newGrid);
-          }, [gridSize, gridData.length, pushNewGridState]);
+          }, [gridSize, gridData, pushNewGridState]);
 
           const handleCellInteraction = useCallback((row, col) => {
             const wasStrokeStart = !isDrawing;
@@ -505,6 +527,24 @@
                     ctx.beginPath();
                     ctx.arc(xPos + cellSize / 2, yPos + cellSize / 2, cellSize * 0.4, 0, 2 * Math.PI);
                     ctx.fill();
+                  } else if (stitchMode === 'pixel') {
+                    ctx.fillStyle = displayColor;
+                    ctx.fillRect(xPos, yPos, cellSize, cellSize);
+                  } else if (stitchMode === 'rounded') {
+                      const radius = cellSize * 0.3;
+                      ctx.fillStyle = displayColor;
+                      ctx.beginPath();
+                      ctx.moveTo(xPos + radius, yPos);
+                      ctx.lineTo(xPos + cellSize - radius, yPos);
+                      ctx.quadraticCurveTo(xPos + cellSize, yPos, xPos + cellSize, yPos + radius);
+                      ctx.lineTo(xPos + cellSize, yPos + cellSize - radius);
+                      ctx.quadraticCurveTo(xPos + cellSize, yPos + cellSize, xPos + cellSize - radius, yPos + cellSize);
+                      ctx.lineTo(xPos + radius, yPos + cellSize);
+                      ctx.quadraticCurveTo(xPos, yPos + cellSize, xPos, yPos + cellSize - radius);
+                      ctx.lineTo(xPos, yPos + radius);
+                      ctx.quadraticCurveTo(xPos, yPos, xPos + radius, yPos);
+                      ctx.closePath();
+                      ctx.fill();
                   }
                 }
               }
@@ -527,16 +567,29 @@
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative">
                   <main className="lg:col-span-2 bg-white/50 backdrop-blur-sm p-2 sm:p-4 rounded-2xl shadow-lg border border-white/20 relative">
                     <div className="grid w-full aspect-square" style={gridStyle}>
-                      {gridData.map((row, rowIndex) => row.map((color, colIndex) => (
-                          <Cell 
-                            key={`${rowIndex}-${colIndex}`} 
-                            color={color} 
-                            onCellInteraction={() => handleCellInteraction(rowIndex, colIndex)} 
-                            onMouseEnterCell={() => handleCellInteraction(rowIndex, colIndex)}
-                            stitchMode={stitchMode} 
-                            isBlackAndWhite={isBlackAndWhite} 
-                          />
-                      )))}
+                      {gridData.map((row, rowIndex) => row.map((color, colIndex) => {
+                          const neighbors = {
+                            top: rowIndex > 0 && gridData[rowIndex - 1][colIndex],
+                            bottom: rowIndex < gridSize - 1 && gridData[rowIndex + 1][colIndex],
+                            left: colIndex > 0 && gridData[rowIndex][colIndex - 1],
+                            right: colIndex < gridSize - 1 && gridData[rowIndex][colIndex + 1],
+                            topLeft: rowIndex > 0 && colIndex > 0 && gridData[rowIndex - 1][colIndex - 1],
+                            topRight: rowIndex > 0 && colIndex < gridSize - 1 && gridData[rowIndex - 1][colIndex + 1],
+                            bottomLeft: rowIndex < gridSize - 1 && colIndex > 0 && gridData[rowIndex + 1][colIndex - 1],
+                            bottomRight: rowIndex < gridSize - 1 && colIndex < gridSize - 1 && gridData[rowIndex + 1][colIndex + 1],
+                          };
+                          return (
+                            <Cell 
+                              key={`${rowIndex}-${colIndex}`} 
+                              color={color} 
+                              onCellInteraction={() => handleCellInteraction(rowIndex, colIndex)} 
+                              onMouseEnterCell={() => handleCellInteraction(rowIndex, colIndex)}
+                              stitchMode={stitchMode} 
+                              isBlackAndWhite={isBlackAndWhite} 
+                              neighbors={neighbors}
+                            />
+                          )
+                      }))}
                     </div>
                      <Toolbar
                       onUndo={handleUndo} onRedo={handleRedo} canUndo={canUndo} canRedo={canRedo}
