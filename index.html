@@ -97,7 +97,7 @@
         // --- Default Color Palette (DMC-inspired) ---
         const INITIAL_DMC_COLORS = [
           "#FFFFFF", "#000000", "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF",
-          "#F8F8F8", "#C7C7C7", "#888888", "#555555", "#313131", "#990000", "#D46A6A", "#FFAAAA",
+          "#F8F8F8", "# C7C7C7", "#888888", "#555555", "#313131", "#990000", "#D46A6A", "#FFAAAA",
           "#CC4E00", "#FF9955", "#FFD4B8", "#FFCC00", "#FFEE77", "#FFFFC2", "#649632", "#96FF4A",
           "#C2FF96", "#006400", "#009600", "#78FF78", "#006464", "#009696", "#78FFFF", "#000099",
           "#6A6AFF", "#AAAAFF", "#4A0096", "#964AFF", "#C296FF", "#960096", "#FF78FF", "#FFB8FF",
@@ -108,7 +108,7 @@
         // --- React Components ---
 
         // Represents a single cell in the cross-stitch grid
-        const Cell = React.memo(({ color, onCellInteraction, onMouseEnterCell, stitchMode, isBlackAndWhite, useRoundedCorners, neighbors }) => {
+        const Cell = React.memo(({ color, onCellInteraction, onMouseEnterCell, stitchMode, isBlackAndWhite, useRoundedCorners, neighbors, dotSize }) => {
           const handleInteraction = (e) => {
             e.preventDefault();
             onCellInteraction();
@@ -160,7 +160,7 @@
               )}
               {displayColor && stitchMode === 'dot' && (
                  <svg viewBox="0 0 100 100" className="w-full h-full pointer-events-none">
-                    <circle cx="50" cy="50" r="40" fill={displayColor} />
+                    <circle cx="50" cy="50" r={dotSize * 50} fill={displayColor} />
                 </svg>
               )}
               {stitchMode === 'dot' && !color && (
@@ -182,7 +182,7 @@
 
           return (
             <div className="bg-white p-4 border border-black/20 w-80">
-              <h3 className="text-sm font-bold text-black/60 uppercase tracking-widest mb-3">Palette</h3>
+              <h3 className="text-sm font-normal text-black/60 tracking-widest mb-3">palette</h3>
               <div className="grid grid-cols-8 gap-2 mb-4">
                 {paletteColors.map((color, index) => (
                   <div
@@ -194,8 +194,8 @@
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <label htmlFor="palette-upload" className="flex-1 text-center p-2 text-sm font-bold transition-colors cursor-pointer bg-gray-100 text-black/80 hover:bg-gray-200">
-                    Upload Image
+                <label htmlFor="palette-upload" className="flex-1 text-center p-2 text-sm font-normal transition-colors cursor-pointer bg-gray-100 text-black/80 hover:bg-gray-200">
+                    upload image
                 </label>
                 <input id="palette-upload" type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                 {hasGeneratedPalette && (
@@ -217,7 +217,7 @@
               <button onClick={onRedo} disabled={!canRedo} className="p-3 text-black/80 transition-colors hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 9H8a5 5 0 0 0-5 5v7"/><path d="m17 5 4 4-4 4"/></svg>
               </button>
-              <button onClick={onTogglePalette} className="w-10 h-10 rounded-full ring-2 ring-offset-2 ring-transparent transition-all" style={{backgroundColor: selectedColor}}></button>
+              <button onClick={onTogglePalette} className="w-8 h-8 rounded-full ring-2 ring-offset-2 ring-transparent transition-all" style={{backgroundColor: selectedColor}}></button>
               <button onClick={onToggleEraser} className={`p-3 transition-colors ${isErasing ? 'bg-orange-500 text-white' : 'text-black/80 hover:bg-gray-100'}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21H7Z"/><path d="M22 21H7"/><path d="m5 12 5 5"/></svg>
               </button>
@@ -228,7 +228,7 @@
         );
 
         // Contains all other control elements
-        const Controls = ({ gridSize, onGridSizeChange, onImageUpload, isLoading, stitchMode, onStitchModeChange, isBlackAndWhite, onBwToggle, onExportPNG, useRoundedCorners, onRoundedCornersToggle }) => {
+        const Controls = ({ gridSize, onGridSizeChange, onImageUpload, isLoading, stitchMode, onStitchModeChange, isBlackAndWhite, onBwToggle, onExportPNG, useRoundedCorners, onRoundedCornersToggle, dotSize, onDotSizeChange }) => {
           const handleFileUpload = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -242,14 +242,14 @@
           return (
             <div className="border border-black/20 p-4 space-y-4">
                 <div className="p-1 bg-gray-100 flex border border-black/20">
-                    <button onClick={() => onStitchModeChange('cross')} className={`w-1/3 py-2 px-4 text-sm font-bold transition-all ${stitchMode === 'cross' ? 'bg-black text-white' : 'text-black/60'}`}>Cross</button>
-                    <button onClick={() => onStitchModeChange('dot')} className={`w-1/3 py-2 px-4 text-sm font-bold transition-all ${stitchMode === 'dot' ? 'bg-black text-white' : 'text-black/60'}`}>Dot</button>
-                    <button onClick={() => onStitchModeChange('pixel')} className={`w-1/3 py-2 px-4 text-sm font-bold transition-all ${stitchMode === 'pixel' ? 'bg-black text-white' : 'text-black/60'}`}>Pixel</button>
+                    <button onClick={() => onStitchModeChange('cross')} className={`w-1/3 py-2 px-4 text-sm font-normal transition-all ${stitchMode === 'cross' ? 'bg-black text-white' : 'text-black/60'}`}>cross</button>
+                    <button onClick={() => onStitchModeChange('dot')} className={`w-1/3 py-2 px-4 text-sm font-normal transition-all ${stitchMode === 'dot' ? 'bg-black text-white' : 'text-black/60'}`}>dot</button>
+                    <button onClick={() => onStitchModeChange('pixel')} className={`w-1/3 py-2 px-4 text-sm font-normal transition-all ${stitchMode === 'pixel' ? 'bg-black text-white' : 'text-black/60'}`}>pixel</button>
                 </div>
 
                 {stitchMode === 'pixel' && (
                     <label htmlFor="rounded-corners-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-100 border border-black/20">
-                        <span className="text-sm font-bold text-black/60">Rounded Corners</span>
+                        <span className="text-sm font-normal text-black/60">rounded corners</span>
                         <div className="relative">
                             <input type="checkbox" id="rounded-corners-mode" className="sr-only peer" checked={useRoundedCorners} onChange={onRoundedCornersToggle} />
                             <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-checked:bg-orange-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
@@ -257,8 +257,15 @@
                     </label>
                 )}
 
+                {stitchMode === 'dot' && (
+                    <div>
+                        <label htmlFor="dotSize" className="text-sm font-normal text-black/60 tracking-widest">dot size: {dotSize.toFixed(2)}</label>
+                        <input type="range" id="dotSize" min="0.1" max="2.0" step="0.05" value={dotSize} onChange={(e) => onDotSizeChange(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-thumb" />
+                    </div>
+                )}
+
                 <label htmlFor="bw-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-100 border border-black/20">
-                    <span className="text-sm font-bold text-black/60">B&W Mode</span>
+                    <span className="text-sm font-normal text-black/60">b&w mode</span>
                     <div className="relative">
                         <input type="checkbox" id="bw-mode" className="sr-only peer" checked={isBlackAndWhite} onChange={onBwToggle} />
                         <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-checked:bg-orange-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
@@ -266,17 +273,17 @@
                 </label>
                 
                 <div>
-                    <label htmlFor="gridSize" className="text-sm font-bold text-black/60 uppercase tracking-widest">Grid Size: {gridSize}</label>
+                    <label htmlFor="gridSize" className="text-sm font-normal text-black/60 tracking-widest">grid size: {gridSize}</label>
                     <input type="range" id="gridSize" min="16" max="64" step="8" value={gridSize} onChange={(e) => onGridSizeChange(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-thumb" disabled={isLoading}/>
                 </div>
                 
                 <div className="flex">
-                    <label htmlFor="imageUpload" className={`flex-1 text-center p-3 font-bold transition-colors cursor-pointer ${isLoading ? 'bg-gray-400 text-white/80' : 'bg-gray-100 text-black/80 hover:bg-gray-200'}`}>
-                        {isLoading ? 'Processing...' : 'Upload'}
+                    <label htmlFor="imageUpload" className={`flex-1 text-center p-3 font-normal transition-colors cursor-pointer ${isLoading ? 'bg-gray-400 text-white/80' : 'bg-gray-100 text-black/80 hover:bg-gray-200'}`}>
+                        {isLoading ? 'processing...' : 'upload'}
                     </label>
                     <input id="imageUpload" type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isLoading} />
-                    <button onClick={onExportPNG} disabled={isLoading} className="flex-1 p-3 bg-black text-white font-bold transition-colors disabled:opacity-50">
-                        Export
+                    <button onClick={onExportPNG} disabled={isLoading} className="flex-1 p-3 bg-black text-white font-normal transition-colors disabled:opacity-50">
+                        export
                     </button>
                 </div>
             </div>
@@ -301,6 +308,7 @@
           const [isPaletteOpen, setIsPaletteOpen] = useState(false);
           const [useRoundedCorners, setUseRoundedCorners] = useState(false);
           const [hasGeneratedPalette, setHasGeneratedPalette] = useState(false);
+          const [dotSize, setDotSize] = useState(0.8);
           
           const [paletteColors, setPaletteColors] = useState(INITIAL_DMC_COLORS);
 
@@ -487,7 +495,7 @@
                   } else if (stitchMode === 'dot') {
                     ctx.fillStyle = displayColor;
                     ctx.beginPath();
-                    ctx.arc(xPos + cellSize / 2, yPos + cellSize / 2, cellSize * 0.4, 0, 2 * Math.PI);
+                    ctx.arc(xPos + cellSize / 2, yPos + cellSize / 2, cellSize * (dotSize / 2), 0, 2 * Math.PI);
                     ctx.fill();
                   } else if (stitchMode === 'pixel') {
                     ctx.fillStyle = displayColor;
@@ -570,6 +578,7 @@
                               isBlackAndWhite={isBlackAndWhite}
                               useRoundedCorners={useRoundedCorners}
                               neighbors={neighbors}
+                              dotSize={dotSize}
                             />
                           )
                       }))}
@@ -601,23 +610,24 @@
                       isBlackAndWhite={isBlackAndWhite} onBwToggle={() => setIsBlackAndWhite(!isBlackAndWhite)}
                       onExportPNG={handleExportPNG}
                       useRoundedCorners={useRoundedCorners} onRoundedCornersToggle={() => setUseRoundedCorners(!useRoundedCorners)}
+                      dotSize={dotSize} onDotSizeChange={setDotSize}
                     />
                   </aside>
                   {isLoading && (
                       <div className="absolute inset-0 bg-gray-800/50 backdrop-blur-sm flex justify-center items-center z-30">
-                          <div className="text-white text-2xl font-bold">
-                            Processing...
+                          <div className="text-white text-2xl font-normal">
+                            processing...
                           </div>
                       </div>
                   )}
                   {showModal && (
                     <div className="absolute inset-0 bg-gray-800/50 backdrop-blur-sm flex justify-center items-center z-30">
                         <div className="bg-white p-8 shadow-2xl text-center max-w-sm border border-black/20">
-                            <h3 className="text-xl font-bold mb-4">Are you sure?</h3>
-                            <p className="mb-6 text-black/60">Clearing the grid cannot be undone.</p>
+                            <h3 className="text-xl font-normal mb-4">are you sure?</h3>
+                            <p className="mb-6 text-black/60">clearing the grid cannot be undone.</p>
                             <div className="flex justify-center gap-4">
-                                <button onClick={confirmClear} className="px-6 py-2 bg-orange-500 text-white font-bold hover:bg-orange-600">Yes, Clear It</button>
-                                <button onClick={() => setShowModal(false)} className="px-6 py-2 bg-gray-200 font-bold hover:bg-gray-300">Cancel</button>
+                                <button onClick={confirmClear} className="px-6 py-2 bg-orange-500 text-white font-normal hover:bg-orange-600">yes, clear it</button>
+                                <button onClick={() => setShowModal(false)} className="px-6 py-2 bg-gray-200 font-normal hover:bg-gray-300">cancel</button>
                             </div>
                         </div>
                     </div>
