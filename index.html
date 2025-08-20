@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pixel Art Studio</title>
+    <title>one at a time</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React Libraries -->
@@ -13,13 +13,13 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Color Thief for palette generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
-    <!-- Google Fonts: Roboto Mono -->
+    <!-- Google Fonts: IBM Plex Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap" rel="stylesheet">
     <style>
         /* Custom styles from the React app */
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'IBM Plex Mono', monospace; }
         .range-thumb::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
@@ -182,7 +182,7 @@
 
           return (
             <div className="bg-white p-4 border border-black/20 w-80">
-              <h3 className="text-sm font-normal text-black/60 tracking-widest mb-3">palette</h3>
+              <h3 className="text-sm font-normal text-black/60 mb-3">palette</h3>
               <div className="grid grid-cols-8 gap-2 mb-4">
                 {paletteColors.map((color, index) => (
                   <div
@@ -259,8 +259,8 @@
 
                 {stitchMode === 'dot' && (
                     <div>
-                        <label htmlFor="dotSize" className="text-sm font-normal text-black/60 tracking-widest">dot size: {dotSize.toFixed(2)}</label>
-                        <input type="range" id="dotSize" min="0.1" max="2.0" step="0.05" value={dotSize} onChange={(e) => onDotSizeChange(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-thumb" />
+                        <label htmlFor="dotSize" className="text-sm font-normal text-black/60">dot size: {dotSize.toFixed(2)}</label>
+                        <input type="range" id="dotSize" min="0.1" max="1.0" step="0.05" value={dotSize} onChange={(e) => onDotSizeChange(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-thumb" />
                     </div>
                 )}
 
@@ -273,7 +273,7 @@
                 </label>
                 
                 <div>
-                    <label htmlFor="gridSize" className="text-sm font-normal text-black/60 tracking-widest">grid size: {gridSize}</label>
+                    <label htmlFor="gridSize" className="text-sm font-normal text-black/60">grid size: {gridSize}</label>
                     <input type="range" id="gridSize" min="16" max="64" step="8" value={gridSize} onChange={(e) => onGridSizeChange(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-thumb" disabled={isLoading}/>
                 </div>
                 
