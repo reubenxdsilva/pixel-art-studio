@@ -242,9 +242,9 @@
           return (
             <div className="border border-black/20 p-4 space-y-4">
                 <div className="p-1 bg-gray-100 flex border border-black/20">
-                    <button onClick={() => onStitchModeChange('cross')} className={`w-1/3 py-2 px-4 text-sm font-normal transition-all ${stitchMode === 'cross' ? 'bg-black text-white' : 'text-black/60'}`}>cross</button>
-                    <button onClick={() => onStitchModeChange('dot')} className={`w-1/3 py-2 px-4 text-sm font-normal transition-all ${stitchMode === 'dot' ? 'bg-black text-white' : 'text-black/60'}`}>dot</button>
                     <button onClick={() => onStitchModeChange('pixel')} className={`w-1/3 py-2 px-4 text-sm font-normal transition-all ${stitchMode === 'pixel' ? 'bg-black text-white' : 'text-black/60'}`}>pixel</button>
+                    <button onClick={() => onStitchModeChange('dot')} className={`w-1/3 py-2 px-4 text-sm font-normal transition-all ${stitchMode === 'dot' ? 'bg-black text-white' : 'text-black/60'}`}>dot</button>
+                    <button onClick={() => onStitchModeChange('cross')} className={`w-1/3 py-2 px-4 text-sm font-normal transition-all ${stitchMode === 'cross' ? 'bg-black text-white' : 'text-black/60'}`}>cross</button>
                 </div>
 
                 {stitchMode === 'pixel' && (
@@ -302,7 +302,7 @@
           const [isErasing, setIsErasing] = useState(false);
           const [isLoading, setIsLoading] = useState(false);
           const [showModal, setShowModal] = useState(false);
-          const [stitchMode, setStitchMode] = useState('cross');
+          const [stitchMode, setStitchMode] = useState('pixel');
           const [isBlackAndWhite, setIsBlackAndWhite] = useState(false);
           const [isDrawing, setIsDrawing] = useState(false);
           const [isPaletteOpen, setIsPaletteOpen] = useState(false);
