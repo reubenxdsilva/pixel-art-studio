@@ -20,22 +20,37 @@
     <style>
         /* Custom styles from the React app */
         body { font-family: 'IBM Plex Mono', monospace; }
+        .range-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        .range-thumb::-webkit-slider-runnable-track {
+            background: #e5e7eb; /* gray-200 */
+            height: 8px;
+            border-radius: 8px;
+        }
+        .range-thumb::-moz-range-track {
+            background: #e5e7eb; /* gray-200 */
+            height: 8px;
+            border-radius: 8px;
+        }
         .range-thumb::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
+            margin-top: -6px; /* (thumb height - track height) / 2 = (20px - 8px) / 2 */
             width: 20px;
             height: 20px;
             background: #F97316; /* orange-500 */
             border-radius: 50%;
-            cursor: pointer;
-            margin-top: -7px;
         }
         .range-thumb::-moz-range-thumb {
             width: 20px;
             height: 20px;
             background: #F97316; /* orange-500 */
             border-radius: 50%;
-            cursor: pointer;
+            border: none;
         }
     </style>
 </head>
