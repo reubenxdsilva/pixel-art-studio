@@ -107,6 +107,23 @@
             return hex.length === 1 ? '0' + hex : hex;
         }).join('');
 
+        // Converts a hex color to a greyscale hex color
+        const hexToGreyscale = (hex) => {
+          const rgb = hexToRgb(hex);
+          if (!rgb) return null;
+          const grey = Math.round(0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b);
+          return rgbToHex(grey, grey, grey);
+        };
+
+        const ASCII_RAMP = ['@', '%', '#', '*', '+', '=', '-', ':', '.', ' '];
+        const getAsciiChar = (hex) => {
+            const rgb = hexToRgb(hex);
+            if (!rgb) return ' ';
+            const grey = Math.round(0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b);
+            const index = Math.floor(grey / (256 / ASCII_RAMP.length));
+            return ASCII_RAMP[index];
+        };
+
 
 
         // --- Default Color Palette (DMC-inspired) ---
@@ -123,9 +140,14 @@
         // --- React Components ---
 
         // Represents a single cell in the cross-stitch grid
-        const Cell = React.memo(({ color, onCellInteraction, onMouseEnterCell, stitchMode, isBlackAndWhite, useRoundedCorners, neighbors, dotSize }) => {
+        const Cell = React.memo(({ color, onCellInteraction, onMouseEnterCell, stitchMode, isBlackAndWhite, isAsciiMode, useRoundedCorners, neighbors, dotSize, onColorPick }) => {
           const handleInteraction = (e) => {
             e.preventDefault();
+            // Handle Ctrl-click or right-click for color picking
+            if ((e.ctrlKey || e.button === 2) && color) {
+                onColorPick(color);
+                return;
+            }
             onCellInteraction();
           };
           const handleMouseEnter = (e) => {
@@ -139,15 +161,29 @@
                 element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
             }
           };
+          const handleContextMenu = (e) => {
+            e.preventDefault();
+            if (color) {
+                onColorPick(color);
+            }
+          };
           
           const cellClass = stitchMode === 'cross' || stitchMode === 'pixel' ? "border border-gray-300/50" : "border border-transparent";
-          const displayColor = color && isBlackAndWhite ? '#000000' : color;
+          const displayColor = color && isBlackAndWhite ? hexToGreyscale(color) : color;
 
           const style = {
               touchAction: 'none'
           };
 
-          if (displayColor) {
+          const asciiStyle = {
+              color: isBlackAndWhite ? '#000' : color,
+              lineHeight: '1',
+              verticalAlign: 'middle',
+              fontSize: 'clamp(12px, 4vw, 32px)',
+              fontWeight: 'bold'
+          };
+
+          if (displayColor && !isAsciiMode) {
               if (stitchMode === 'pixel') {
                   style.backgroundColor = displayColor;
                   if (useRoundedCorners) {
@@ -167,26 +203,32 @@
               className={`aspect-square flex justify-center items-center select-none ${cellClass}`}
               style={style}
               onMouseDown={handleInteraction} onMouseEnter={handleMouseEnter} onTouchStart={handleInteraction} onTouchMove={handleTouchMove}
+              onContextMenu={handleContextMenu}
             >
-              {displayColor && stitchMode === 'cross' && (  
+              {displayColor && !isAsciiMode && stitchMode === 'cross' && (  
                 <svg viewBox="0 0 100 100" className="w-full h-full pointer-events-none" style={{ color: displayColor }}>
                   <path d="M15 15 L85 85 M85 15 L15 85" stroke="currentColor" strokeWidth="20" strokeLinecap="round" />
                 </svg>
               )}
-              {displayColor && stitchMode === 'dot' && (
+              {displayColor && !isAsciiMode && stitchMode === 'dot' && (
                  <svg viewBox="0 0 100 100" className="w-full h-full pointer-events-none">
                     <circle cx="50" cy="50" r={dotSize * 50} fill={displayColor} />
                 </svg>
               )}
-              {stitchMode === 'dot' && !color && (
+              {!isAsciiMode && stitchMode === 'dot' && !color && (
                   <div className="w-1.5 h-1.5 rounded-full bg-gray-300"></div>
+              )}
+              {color && isAsciiMode && (
+                <span className="font-mono" style={asciiStyle}>
+                    {getAsciiChar(color)}
+                </span>
               )}
             </div>
           );
         });
 
         // Displays the color palette in a popover
-        const ColorPalette = ({ paletteColors, selectedColor, onColorSelect, onImageUploadForPalette, onRemoveGeneratedPalette, hasGeneratedPalette }) => {
+        const ColorPalette = ({ paletteColors, selectedColor, onColorSelect, onImageUploadForPalette, onRemoveGeneratedPalette, hasGeneratedPalette, showColorPickerHint, onDismissColorPickerHint }) => {
           const handleFileChange = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -197,6 +239,21 @@
 
           return (
             <div className="bg-white p-4 border border-black/20 w-80">
+                {showColorPickerHint && (
+                    <div className="bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-4 mb-4" role="alert">
+                        <div className="flex">
+                            <div className="py-1"><svg className="fill-current h-6 w-6 text-orange-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zM9 11v4h2v-4H9zm0-6v2h2V5H9z"/></svg></div>
+                            <div>
+                                <p className="font-bold">Pro-tip</p>
+                                <p className="text-sm">Right-click or Ctrl-click on a pixel to pick its color.</p>
+                            </div>
+                            <button onClick={onDismissColorPickerHint} className="ml-auto -mx-1.5 -my-1.5 bg-orange-100 text-orange-500 rounded-lg focus:ring-2 focus:ring-orange-400 p-1.5 hover:bg-orange-200 inline-flex h-8 w-8" aria-label="Dismiss">
+                                <span className="sr-only">Dismiss</span>
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                )}
               <h3 className="text-sm font-normal text-black/60 mb-3">palette</h3>
               <div className="grid grid-cols-8 gap-2 mb-4">
                 {paletteColors.map((color, index) => (
@@ -223,9 +280,92 @@
           );
         };
 
+        // Sketch Thumbnail Component
+        const SketchThumbnail = ({ sketch, size = 40 }) => {
+            const canvasRef = React.useRef(null);
+
+            useEffect(() => {
+                if (!sketch) return;
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                const gridSize = sketch.gridSize;
+                const cellSize = size / gridSize;
+
+                ctx.clearRect(0, 0, size, size);
+
+                for (let y = 0; y < gridSize; y++) {
+                    for (let x = 0; x < gridSize; x++) {
+                        const color = sketch.history.present[y][x];
+                        if (color) {
+                            ctx.fillStyle = color;
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
+                    }
+                }
+            }, [sketch, size]);
+
+            return <canvas ref={canvasRef} width={size} height={size} className="border border-black/10" />;
+        };
+
+        // Sketch Picker Component
+        const SketchPicker = ({ sketches, activeSketchId, onSelectSketch, onCreateNewSketch, onDeleteSketch }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const activeSketch = sketches.find(s => s.id === activeSketchId);
+
+            const handleDelete = (e, sketchId) => {
+                e.stopPropagation();
+                if (window.confirm(`Are you sure you want to delete "${sketches.find(s => s.id === sketchId).name}"?`)) {
+                    onDeleteSketch(sketchId);
+                    setIsOpen(false);
+                }
+            };
+
+            return (
+                <div className="relative">
+                    <button onClick={() => setIsOpen(!isOpen)} className="w-full bg-white p-3 border border-black/20 flex justify-between items-center">
+                        <span>{activeSketch.name}</span>
+                        <svg className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    {isOpen && (
+                        <div className="absolute top-full left-0 right-0 bg-white border border-black/20 z-10">
+                            {sketches.map(sketch => (
+                                <div
+                                    key={sketch.id}
+                                    onClick={() => { onSelectSketch(sketch.id); setIsOpen(false); }}
+                                    className="p-3 flex items-center gap-3 cursor-pointer hover:bg-gray-100 group"
+                                >
+                                    <SketchThumbnail sketch={sketch} />
+                                    <span className="flex-1">{sketch.name}</span>
+                                    {sketches.length > 1 && (
+                                        <button onClick={(e) => handleDelete(e, sketch.id)} className="p-2 opacity-0 group-hover:opacity-100 text-black/40 hover:text-black">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                            <div
+                                onClick={() => { onCreateNewSketch(); setIsOpen(false); }}
+                                className="p-3 flex items-center gap-3 cursor-pointer hover:bg-gray-100 border-t border-black/20"
+                            >
+                                <div className="w-10 h-10 flex items-center justify-center bg-gray-200 border border-black/10">
+                                    <svg className="w-6 h-6 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                </div>
+                                <span>New Sketch</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
         // Main Toolbar for core editing actions
-        const Toolbar = ({ onUndo, onRedo, canUndo, canRedo, onToggleEraser, isErasing, onClear, onTogglePalette, selectedColor }) => (
-            <div className="absolute top-4 right-4 bg-white p-2 border border-black/20 flex items-center gap-2 z-20">
+        const Toolbar = React.forwardRef(({ onUndo, onRedo, canUndo, canRedo, onToggleEraser, isErasing, onClear, onTogglePalette, selectedColor, position, onDragStart }, ref) => (
+            <div 
+                ref={ref}
+                draggable="true"
+                onDragStart={onDragStart}
+                className={`absolute bg-white p-2 border border-black/20 flex items-center gap-2 z-20 cursor-grab ${position.y === 'top' ? 'top-4' : 'bottom-4'} ${position.x === 'left' ? 'left-4' : 'right-4'}`}
+            >
               <button onClick={onUndo} disabled={!canUndo} className="p-3 text-black/80 transition-colors hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h13a5 5 0 0 1 5 5v7"/><path d="M7 5 3 9l4 4"/></svg>
               </button>
@@ -240,10 +380,10 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
               </button>
             </div>
-        );
+        ));
 
         // Contains all other control elements
-        const Controls = ({ gridSize, onGridSizeChange, onImageUpload, isLoading, stitchMode, onStitchModeChange, isBlackAndWhite, onBwToggle, onExportPNG, useRoundedCorners, onRoundedCornersToggle, dotSize, onDotSizeChange }) => {
+        const Controls = ({ gridSize, onGridSizeChange, onImageUpload, isLoading, stitchMode, onStitchModeChange, isBlackAndWhite, onBwToggle, isAsciiMode, onAsciiToggle, onExportPNG, useRoundedCorners, onRoundedCornersToggle, dotSize, onDotSizeChange, onDeleteSketch }) => {
           const handleFileUpload = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -279,8 +419,16 @@
                     </div>
                 )}
 
+                <label htmlFor="ascii-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-100 border border-black/20">
+                    <span className="text-sm font-normal text-black/60">convert to ascii</span>
+                    <div className="relative">
+                        <input type="checkbox" id="ascii-mode" className="sr-only peer" checked={isAsciiMode} onChange={onAsciiToggle} />
+                        <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-checked:bg-orange-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </div>
+                </label>
+
                 <label htmlFor="bw-mode" className="flex items-center justify-between cursor-pointer p-3 bg-gray-100 border border-black/20">
-                    <span className="text-sm font-normal text-black/60">b&w mode</span>
+                    <span className="text-sm font-normal text-black/60">convert to greyscale</span>
                     <div className="relative">
                         <input type="checkbox" id="bw-mode" className="sr-only peer" checked={isBlackAndWhite} onChange={onBwToggle} />
                         <div className="w-11 h-6 bg-gray-400 rounded-full peer peer-checked:bg-orange-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
@@ -307,29 +455,82 @@
 
         // Main App Component
         function App() {
-          const [gridSize, setGridSize] = useState(32);
-          const [history, setHistory] = useState({
-            past: [],
-            present: Array(32).fill(null).map(() => Array(32).fill(null)),
-            future: [],
+          const initialGridSize = 32;
+          const createNewSketch = (name, size) => ({
+            id: Date.now(),
+            name: name,
+            history: {
+              past: [],
+              present: Array(size).fill(null).map(() => Array(size).fill(null)),
+              future: [],
+            },
+            gridSize: size,
           });
+
+          const [sketches, setSketches] = useState([createNewSketch('Sketch 1', initialGridSize)]);
+          const [activeSketchId, setActiveSketchId] = useState(sketches[0].id);
+
+          const activeSketch = sketches.find(s => s.id === activeSketchId);
+          const activeSketchIndex = sketches.findIndex(s => s.id === activeSketchId);
+
+          const updateActiveSketch = (updater) => {
+            setSketches(currentSketches => {
+                return currentSketches.map(sketch => {
+                    if (sketch.id === activeSketchId) {
+                        return updater(sketch);
+                    }
+                    return sketch;
+                });
+            });
+          };
+
+          const setHistory = (updater) => {
+            updateActiveSketch(sketch => {
+                const newHistory = typeof updater === 'function' ? updater(sketch.history) : updater;
+                return { ...sketch, history: newHistory };
+            });
+          };
+          
+          const setGridSize = (newSize) => {
+            updateActiveSketch(sketch => ({ ...sketch, gridSize: newSize }));
+          };
+
+          const { history, gridSize } = activeSketch;
+          const { present: gridData, past, future } = history;
+
           const [selectedColor, setSelectedColor] = useState(INITIAL_DMC_COLORS[1]);
           const [isErasing, setIsErasing] = useState(false);
           const [isLoading, setIsLoading] = useState(false);
           const [showModal, setShowModal] = useState(false);
           const [stitchMode, setStitchMode] = useState('pixel');
           const [isBlackAndWhite, setIsBlackAndWhite] = useState(false);
+          const [isAsciiMode, setIsAsciiMode] = useState(false);
           const [isDrawing, setIsDrawing] = useState(false);
           const [isPaletteOpen, setIsPaletteOpen] = useState(false);
           const [useRoundedCorners, setUseRoundedCorners] = useState(false);
           const [hasGeneratedPalette, setHasGeneratedPalette] = useState(false);
           const [dotSize, setDotSize] = useState(0.8);
+          const [showColorPickerHint, setShowColorPickerHint] = useState(true);
+          const [toolbarPosition, setToolbarPosition] = useState({ x: 'right', y: 'top' });
+          const paletteRef = React.useRef(null);
+          const toolbarRef = React.useRef(null);
           
           const [paletteColors, setPaletteColors] = useState(INITIAL_DMC_COLORS);
 
-          const { present: gridData, past, future } = history;
           const canUndo = past.length > 0;
           const canRedo = future.length > 0;
+
+          useEffect(() => {
+            const handleClickOutside = (event) => {
+                if (isPaletteOpen && paletteRef.current && !paletteRef.current.contains(event.target) && toolbarRef.current && !toolbarRef.current.contains(event.target)) {
+                    setIsPaletteOpen(false);
+                }
+            };
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => {
+                document.removeEventListener('mousedown', handleClickOutside);
+            };
+          }, [isPaletteOpen]);
 
           useEffect(() => {
             const endDrawing = () => setIsDrawing(false);
@@ -349,27 +550,41 @@
             }));
           }, []);
 
-          useEffect(() => {
-            setHistory(currentHistory => {
-                const oldGrid = currentHistory.present;
-                const oldSize = oldGrid.length;
-                if (gridSize === oldSize) {
-                    return currentHistory;
+          const handleGridSizeChange = (newSize) => {
+            updateActiveSketch(sketch => {
+                const oldGrid = sketch.history.present;
+                const oldSize = sketch.gridSize;
+                if (newSize === oldSize) {
+                    return sketch;
                 }
-                const newGrid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null));
-                const sizeToCopy = Math.min(gridSize, oldSize);
+                const newGrid = Array(newSize).fill(null).map(() => Array(newSize).fill(null));
+                const sizeToCopy = Math.min(newSize, oldSize);
                 for (let i = 0; i < sizeToCopy; i++) {
                     for (let j = 0; j < sizeToCopy; j++) {
                         newGrid[i][j] = oldGrid[i][j];
                     }
                 }
                 return {
-                    past: [...currentHistory.past, oldGrid],
-                    present: newGrid,
-                    future: [],
+                    ...sketch,
+                    gridSize: newSize,
+                    history: {
+                        past: [...sketch.history.past, oldGrid],
+                        present: newGrid,
+                        future: [],
+                    },
                 };
             });
-          }, [gridSize]);
+          };
+
+          useEffect(() => {
+            const endDrawing = () => setIsDrawing(false);
+            window.addEventListener('mouseup', endDrawing);
+            window.addEventListener('touchend', endDrawing);
+            return () => {
+              window.removeEventListener('mouseup', endDrawing);
+              window.removeEventListener('touchend', endDrawing);
+            };
+          }, []);
 
           const handleCellInteraction = useCallback((row, col) => {
             const wasStrokeStart = !isDrawing;
@@ -404,17 +619,21 @@
 
           const handleUndo = useCallback(() => {
             if (!canUndo) return;
-            const previous = past[past.length - 1];
-            const newPast = past.slice(0, past.length - 1);
-            setHistory({ past: newPast, present: previous, future: [gridData, ...future] });
-          }, [canUndo, past, gridData, future]);
+            setHistory(currentHistory => {
+                const previous = currentHistory.past[currentHistory.past.length - 1];
+                const newPast = currentHistory.past.slice(0, currentHistory.past.length - 1);
+                return { past: newPast, present: previous, future: [currentHistory.present, ...currentHistory.future] };
+            });
+          }, [canUndo]);
 
           const handleRedo = useCallback(() => {
             if (!canRedo) return;
-            const next = future[0];
-            const newFuture = future.slice(1);
-            setHistory({ past: [...past, gridData], present: next, future: newFuture });
-          }, [canRedo, future, gridData, past]);
+            setHistory(currentHistory => {
+                const next = currentHistory.future[0];
+                const newFuture = currentHistory.future.slice(1);
+                return { past: [...currentHistory.past, currentHistory.present], present: next, future: newFuture };
+            });
+          }, [canRedo]);
 
           const handleColorSelect = (color) => {
             setSelectedColor(color);
@@ -422,9 +641,21 @@
             setIsPaletteOpen(false);
           };
 
+          const handleColorPick = (color) => {
+            if (paletteColors.includes(color)) {
+                setSelectedColor(color);
+                setIsErasing(false);
+            }
+          };
+
           const handleClearGrid = () => setShowModal(true);
           const confirmClear = () => {
-            pushNewGridState(Array(gridSize).fill(null).map(() => Array(gridSize).fill(null)));
+            const newGrid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null));
+            setHistory(currentHistory => ({
+                past: [...currentHistory.past, currentHistory.present],
+                present: newGrid,
+                future: [],
+            }));
             setShowModal(false);
           };
 
@@ -448,7 +679,11 @@
                         }
                     }
                 }
-                pushNewGridState(newGrid);
+                setHistory(currentHistory => ({
+                    past: [...currentHistory.past, currentHistory.present],
+                    present: newGrid,
+                    future: [],
+                }));
                 setIsLoading(false);
             };
             img.onerror = () => {
@@ -456,7 +691,7 @@
                 setIsLoading(false);
             };
             img.src = imgSrc;
-          }, [gridSize, pushNewGridState, paletteColors]);
+          }, [gridSize, paletteColors]);
 
           const handleImageUploadForPalette = (file) => {
             const reader = new FileReader();
@@ -493,7 +728,18 @@
             for (let y = 0; y < currentGridSize; y++) {
               for (let x = 0; x < currentGridSize; x++) {
                 const color = gridData[y][x];
-                const displayColor = color && isBlackAndWhite ? '#000000' : color;
+                if (isAsciiMode && color) {
+                    const xPos = x * cellSize;
+                    const yPos = y * cellSize;
+                    ctx.fillStyle = isBlackAndWhite ? '#000000' : color;
+                    ctx.font = `${cellSize * 0.9}px 'IBM Plex Mono', monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    const char = getAsciiChar(color);
+                    ctx.fillText(char, xPos + cellSize / 2, yPos + cellSize / 2 + cellSize * 0.1);
+                    continue;
+                }
+                const displayColor = color && isBlackAndWhite ? hexToGreyscale(color) : color;
                 if (displayColor) {
                   const xPos = x * cellSize;
                   const yPos = y * cellSize;
@@ -562,9 +808,51 @@
               }
             }
             const link = document.createElement('a');
-            link.download = 'pixel-art.png';
+            link.download = `${activeSketch.name}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
+          };
+
+          const handleToolbarDragStart = (e) => {
+            // Set a transparent drag image to hide the default ghost image
+            const img = new Image();
+            img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+            e.dataTransfer.setDragImage(img, 0, 0);
+          };
+
+          const handleGridDrop = (e) => {
+            e.preventDefault();
+            const gridRect = e.currentTarget.getBoundingClientRect();
+            const dropX = e.clientX - gridRect.left;
+            const dropY = e.clientY - gridRect.top;
+
+            const newPosition = {
+                x: dropX < gridRect.width / 2 ? 'left' : 'right',
+                y: dropY < gridRect.height / 2 ? 'top' : 'bottom',
+            };
+            setToolbarPosition(newPosition);
+          };
+
+          const handleCreateNewSketch = () => {
+            const newName = `Sketch ${sketches.length + 1}`;
+            const newSketch = createNewSketch(newName, initialGridSize);
+            setSketches(current => [...current, newSketch]);
+            setActiveSketchId(newSketch.id);
+          };
+
+          const handleDeleteSketch = (sketchId) => {
+            setSketches(currentSketches => {
+                const newSketches = currentSketches.filter(s => s.id !== sketchId);
+                if (newSketches.length === 0) {
+                    const newSketch = createNewSketch('Sketch 1', initialGridSize);
+                    setActiveSketchId(newSketch.id);
+                    return [newSketch];
+                }
+                if (activeSketchId === sketchId) {
+                    setActiveSketchId(newSketches[0].id);
+                }
+                return newSketches;
+            });
           };
 
           const gridStyle = useMemo(() => ({ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }), [gridSize]);
@@ -573,7 +861,11 @@
             <div className="min-h-screen bg-white text-black/80 p-4 sm:p-6 lg:p-8">
               <div className="max-w-7xl mx-auto">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative">
-                  <main className="lg:col-span-2 bg-white p-2 sm:p-4 border border-black/20 relative">
+                  <main 
+                    className="lg:col-span-2 bg-white p-2 sm:p-4 border border-black/20 relative"
+                    onDrop={handleGridDrop}
+                    onDragOver={(e) => e.preventDefault()}
+                  >
                     <div className="grid w-full aspect-square" style={gridStyle}>
                       {gridData.map((row, rowIndex) => row.map((color, colIndex) => {
                           const currentGridSize = gridData.length;
@@ -589,8 +881,10 @@
                               color={color} 
                               onCellInteraction={() => handleCellInteraction(rowIndex, colIndex)} 
                               onMouseEnterCell={() => handleCellInteraction(rowIndex, colIndex)}
+                              onColorPick={handleColorPick}
                               stitchMode={stitchMode} 
                               isBlackAndWhite={isBlackAndWhite}
+                              isAsciiMode={isAsciiMode}
                               useRoundedCorners={useRoundedCorners}
                               neighbors={neighbors}
                               dotSize={dotSize}
@@ -599,14 +893,17 @@
                       }))}
                     </div>
                      <Toolbar
+                      ref={toolbarRef}
                       onUndo={handleUndo} onRedo={handleRedo} canUndo={canUndo} canRedo={canRedo}
                       onToggleEraser={() => setIsErasing(!isErasing)} isErasing={isErasing}
                       onClear={handleClearGrid}
                       onTogglePalette={() => setIsPaletteOpen(!isPaletteOpen)}
                       selectedColor={selectedColor}
+                      position={toolbarPosition}
+                      onDragStart={handleToolbarDragStart}
                     />
                     {isPaletteOpen && (
-                      <div className="absolute top-20 right-0 z-10">
+                      <div ref={paletteRef} className={`absolute z-10 ${toolbarPosition.y === 'top' ? 'top-20' : 'bottom-20'} ${toolbarPosition.x === 'left' ? 'left-0' : 'right-0'}`}>
                           <ColorPalette
                               paletteColors={paletteColors} 
                               selectedColor={selectedColor} 
@@ -614,15 +911,25 @@
                               onImageUploadForPalette={handleImageUploadForPalette}
                               onRemoveGeneratedPalette={handleRemoveGeneratedPalette}
                               hasGeneratedPalette={hasGeneratedPalette}
+                              showColorPickerHint={showColorPickerHint}
+                              onDismissColorPickerHint={() => setShowColorPickerHint(false)}
                           />
                       </div>
                     )}
                   </main>
                   <aside className="space-y-6">
+                    <SketchPicker 
+                        sketches={sketches}
+                        activeSketchId={activeSketchId}
+                        onSelectSketch={setActiveSketchId}
+                        onCreateNewSketch={handleCreateNewSketch}
+                        onDeleteSketch={handleDeleteSketch}
+                    />
                     <Controls
-                      gridSize={gridSize} onGridSizeChange={setGridSize} onImageUpload={processImage}
+                      gridSize={gridSize} onGridSizeChange={handleGridSizeChange} onImageUpload={processImage}
                       isLoading={isLoading} stitchMode={stitchMode} onStitchModeChange={setStitchMode}
                       isBlackAndWhite={isBlackAndWhite} onBwToggle={() => setIsBlackAndWhite(!isBlackAndWhite)}
+                      isAsciiMode={isAsciiMode} onAsciiToggle={() => setIsAsciiMode(!isAsciiMode)}
                       onExportPNG={handleExportPNG}
                       useRoundedCorners={useRoundedCorners} onRoundedCornersToggle={() => setUseRoundedCorners(!useRoundedCorners)}
                       dotSize={dotSize} onDotSizeChange={setDotSize}
